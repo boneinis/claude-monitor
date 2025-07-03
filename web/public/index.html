@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Monitor Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .stat:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .progress-fill.critical {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert.info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+        }
+
+        .alert.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+
+        .alert.critical {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .chart-container {
+            grid-column: 1 / -1;
+            height: 300px;
+            position: relative;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-active {
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-inactive {
+            background: #6b7280;
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .refresh-indicator.show {
+            opacity: 1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #94a3b8;
+        }
+
+        .chart-tab {
+            background: #334155;
+            color: #94a3b8;
+            border: 1px solid #475569;
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chart-tab.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .chart-view {
+            display: none;
+        }
+
+        .chart-view.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                padding: 1rem;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header" style="position: relative;">
+        <div id="headerWarnings" style="position: absolute; top: 1rem; right: 2rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;"></div>
+        <h1>🤖 Claude Monitor Dashboard</h1>
+        <div class="subtitle">Real-time Claude Code usage tracking</div>
+        <div style="font-size: 0.875rem; opacity: 0.8; margin-top: 0.5rem;" id="systemTime"></div>
+        <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+            <select id="projectFilter" style="
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                color: white;
+                font-size: 0.875rem;
+                cursor: pointer;
+            ">
+                <option value="">All Projects</option>
+            </select>
+            <select id="planSelector" style="
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                color: white;
+                font-size: 0.875rem;
+                cursor: pointer;
+            ">
+                <option value="Free">Free Plan</option>
+                <option value="Pro">Pro Plan</option>
+                <option value="Max5">Max5 Plan</option>
+                <option value="Max20" selected>Max20 Plan</option>
+                <option value="Team">Team Plan</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="refresh-indicator" id="refreshIndicator">
+        🔄 Updated
+    </div>
+
+    <div class="dashboard">
+        <div id="loading" class="loading">
+            Loading Claude usage data...
+        </div>
+
+        <div id="content" style="display: none;">
+            <div class="grid">
+                <!-- Current Session Card -->
+                <div class="card">
+                    <h3>
+                        <span class="status-indicator" id="sessionStatus"></span>
+                        Current Period
+                    </h3>
+                    <div class="stat">
+                        <span class="stat-label">Messages</span>
+                        <span class="stat-value" id="sessionMessages">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Tokens</span>
+                        <span class="stat-value" id="sessionTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Total Cost</span>
+                        <span class="stat-value" id="sessionCost">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Usage Limit Resets</span>
+                        <span class="stat-value" id="sessionReset">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Messages Remaining</span>
+                        <span class="stat-value" id="messagesRemaining">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Usage Rate</span>
+                        <span class="stat-value" id="usageRate">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Token Limit</span>
+                        <span class="stat-value" id="tokenLimit">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Token Depletion</span>
+                        <span class="stat-value" id="tokenDepletion">--</span>
+                    </div>
+                    <div id="sessionWarnings" style="margin-top: 1rem;"></div>
+                </div>
+
+                <!-- Today's Usage Card -->
+                <div class="card">
+                    <h3>📊 Today's Usage</h3>
+                    <div class="stat">
+                        <span class="stat-label">Messages</span>
+                        <span class="stat-value" id="todayMessages">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Tokens</span>
+                        <span class="stat-value" id="todayTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Total Cost</span>
+                        <span class="stat-value" id="todayCost">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Reset Periods</span>
+                        <span class="stat-value" id="todaySessions">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Plan</span>
+                        <span class="stat-value" id="plan">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Usage Reset</span>
+                        <span class="stat-value" id="dailyReset">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Monthly Reset</span>
+                        <span class="stat-value" id="monthlyReset">--</span>
+                    </div>
+                </div>
+
+                <!-- Session Details Card -->
+                <div class="card">
+                    <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>📈 Period Details</span>
+                        <select id="periodSelector" style="
+                            padding: 0.25rem 0.75rem;
+                            border-radius: 4px;
+                            background: #334155;
+                            border: 1px solid #475569;
+                            color: #e2e8f0;
+                            font-size: 0.875rem;
+                            cursor: pointer;
+                        ">
+                            <option value="session">Current Session</option>
+                            <option value="day">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </h3>
+                    <div class="stat">
+                        <span class="stat-label">Period Start</span>
+                        <span class="stat-value" id="sessionStartTime">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Period End</span>
+                        <span class="stat-value" id="sessionEndTime">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Input Tokens</span>
+                        <span class="stat-value" id="sessionInputTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Output Tokens</span>
+                        <span class="stat-value" id="sessionOutputTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cache Read Tokens</span>
+                        <span class="stat-value" id="sessionCacheReadTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cache Write Tokens</span>
+                        <span class="stat-value" id="sessionCacheWriteTokens">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cost (with cache)</span>
+                        <span class="stat-value" id="sessionCostWithCache">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cost (no cache)</span>
+                        <span class="stat-value" id="sessionCostNoCache">--</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cache Savings</span>
+                        <span class="stat-value" id="sessionCacheSavings" style="color: #10b981;">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="card chart-container">
+                <h3>📈 Usage Analytics</h3>
+                <div style="margin: 1rem 0;">
+                    <button onclick="showChart('daily')" class="chart-tab active" id="dailyTab">Daily (7 days)</button>
+                    <button onclick="showChart('weekly')" class="chart-tab" id="weeklyTab">Weekly</button>
+                    <button onclick="showChart('monthly')" class="chart-tab" id="monthlyTab">Monthly (3 months)</button>
+                </div>
+                <div id="dailyChart" class="chart-view active" style="height: 240px; margin-top: 1rem;">
+                    <div style="display: flex; justify-content: space-around; align-items: end; height: 200px; padding: 0 1rem;">
+                        <!-- Daily chart bars will be inserted here -->
+                    </div>
+                </div>
+                <div id="weeklyChart" class="chart-view" style="height: 240px; margin-top: 1rem;">
+                    <div style="display: flex; justify-content: space-around; align-items: end; height: 200px; padding: 0 1rem;">
+                        <!-- Weekly chart bars will be inserted here -->
+                    </div>
+                </div>
+                <div id="monthlyChart" class="chart-view" style="height: 240px; margin-top: 1rem;">
+                    <div style="display: flex; justify-content: space-around; align-items: end; height: 200px; padding: 0 1rem;">
+                        <!-- Monthly chart bars will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monthly Savings Card -->
+            <div class="card" style="grid-column: span 2;">
+                <h3>💰 Monthly Comparison</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <h4 style="font-size: 1rem; margin-bottom: 1rem; color: #94a3b8;">Last Month</h4>
+                        <div class="stat">
+                            <span class="stat-label">API Cost</span>
+                            <span class="stat-value" id="lastMonthApiCost">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label" id="lastMonthPlanLabel">Plan Cost</span>
+                            <span class="stat-value" id="lastMonthPlanCost">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label" id="lastMonthSavingsLabel">Savings</span>
+                            <span class="stat-value" id="lastMonthSavings" style="color: #10b981;">--</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="font-size: 1rem; margin-bottom: 1rem; color: #60a5fa;">This Month</h4>
+                        <div class="stat">
+                            <span class="stat-label">API Cost</span>
+                            <span class="stat-value" id="apiCost">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label" id="planCostLabel">Plan Cost</span>
+                            <span class="stat-value" id="planCost">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label" id="savingsLabel">Savings</span>
+                            <span class="stat-value" id="savings" style="color: #10b981;">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource;
+        let currentProject = '';
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function formatNumber(num) {
+            if (num === undefined || num === null || isNaN(num)) return '0';
+            return new Intl.NumberFormat('en-US').format(num);
+        }
+
+        function formatDuration(ms) {
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            return `${hours}h ${minutes}m`;
+        }
+
+        function updatePeriodDetails() {
+            const period = document.getElementById('periodSelector').value;
+            
+            if (period === 'session' && currentStats && currentStats.currentSession) {
+                // Show current session details (existing code)
+                updateSessionDetails(currentStats.currentSession);
+            } else if (period === 'day' && dailyData.length > 0) {
+                // Show today's aggregated data
+                updateDayDetails();
+            } else if (period === 'week' && weeklyData.length > 0) {
+                // Show this week's data
+                updateWeekDetails();
+            } else if (period === 'month' && monthlyData.length > 0) {
+                // Show this month's data
+                updateMonthDetails();
+            }
+        }
+
+        function updateSessionDetails(session) {
+            if (!session) return;
+            
+            // Calculate token totals for session details
+            let totalInputTokens = 0;
+            let totalOutputTokens = 0;
+            let totalCacheReadTokens = 0;
+            let totalCacheWriteTokens = 0;
+            
+            session.tokenUsage.forEach(usage => {
+                totalInputTokens += usage.inputTokens || 0;
+                totalOutputTokens += usage.outputTokens || 0;
+                totalCacheReadTokens += usage.cacheReadTokens || 0;
+                totalCacheWriteTokens += usage.cacheCreateTokens || 0;
+            });
+            
+            // Format session times
+            const sessionStart = new Date(session.startTime);
+            const sessionEnd = new Date(session.endTime);
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const dateOptions = { month: 'short', day: 'numeric' };
+            
+            // Show both date and time for clarity
+            document.getElementById('sessionStartTime').textContent = 
+                `${sessionStart.toLocaleDateString('en-US', dateOptions)} ${sessionStart.toLocaleTimeString('en-US', timeOptions)}`;
+            document.getElementById('sessionEndTime').textContent = 
+                `${sessionEnd.toLocaleDateString('en-US', dateOptions)} ${sessionEnd.toLocaleTimeString('en-US', timeOptions)}`;
+            document.getElementById('sessionInputTokens').textContent = 
+                formatNumber(totalInputTokens) + ` ($${(totalInputTokens / 1000000 * 15).toFixed(2)})`;
+            document.getElementById('sessionOutputTokens').textContent = 
+                formatNumber(totalOutputTokens) + ` ($${(totalOutputTokens / 1000000 * 75).toFixed(2)})`;
+            document.getElementById('sessionCacheReadTokens').textContent = 
+                formatNumber(totalCacheReadTokens) + ` ($${(totalCacheReadTokens / 1000000 * 1.5).toFixed(2)})`;
+            document.getElementById('sessionCacheWriteTokens').textContent = 
+                formatNumber(totalCacheWriteTokens) + ` ($${(totalCacheWriteTokens / 1000000 * 18.75).toFixed(2)})`;
+                
+            // Calculate percentages
+            const totalTokens = session.totalTokens;
+            if (totalTokens > 0) {
+                const cachePercent = ((totalCacheReadTokens + totalCacheWriteTokens) / totalTokens * 100).toFixed(1);
+                document.getElementById('sessionCacheReadTokens').innerHTML += 
+                    ` <span style="color: #64748b; font-size: 0.85em;">(${(totalCacheReadTokens / totalTokens * 100).toFixed(1)}%)</span>`;
+                document.getElementById('sessionCacheWriteTokens').innerHTML += 
+                    ` <span style="color: #64748b; font-size: 0.85em;">(${(totalCacheWriteTokens / totalTokens * 100).toFixed(1)}%)</span>`;
+            }
+            
+            // Add cost comparison to session details
+            document.getElementById('sessionCostWithCache').textContent = formatCurrency(session.totalCost);
+            
+            // Calculate no-cache cost
+            let noCacheCost = 0;
+            session.tokenUsage.forEach(usage => {
+                // Determine model pricing
+                let inputRate = 15, outputRate = 75; // Default to Opus rates
+                if (usage.model && usage.model.includes('sonnet')) {
+                    inputRate = 3;
+                    outputRate = 15;
+                } else if (usage.model && usage.model.includes('haiku')) {
+                    inputRate = 0.8;
+                    outputRate = 4;
+                }
+                
+                // Without cache: all tokens would be charged at regular rates
+                const totalInputWithoutCache = usage.inputTokens + usage.cacheCreateTokens + usage.cacheReadTokens;
+                const inputCostWithoutCache = (totalInputWithoutCache / 1000000) * inputRate;
+                const outputCostWithoutCache = (usage.outputTokens / 1000000) * outputRate;
+                noCacheCost += inputCostWithoutCache + outputCostWithoutCache;
+            });
+            
+            const cacheSavings = noCacheCost - session.totalCost;
+            const savingsPercent = noCacheCost > 0 ? (cacheSavings / noCacheCost) * 100 : 0;
+            
+            document.getElementById('sessionCostNoCache').textContent = formatCurrency(noCacheCost);
+            document.getElementById('sessionCacheSavings').textContent = 
+                `${formatCurrency(cacheSavings)} (${savingsPercent.toFixed(1)}%)`;
+        }
+
+        function updateDayDetails() {
+            const today = dailyData[dailyData.length - 1];
+            if (!today) return;
+            
+            const now = new Date();
+            const todayStart = new Date(now);
+            todayStart.setUTCHours(0, 0, 0, 0);
+            
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const dateOptions = { month: 'short', day: 'numeric' };
+            
+            document.getElementById('sessionStartTime').textContent = 
+                `${todayStart.toLocaleDateString('en-US', dateOptions)} ${todayStart.toLocaleTimeString('en-US', timeOptions)}`;
+            document.getElementById('sessionEndTime').textContent = 
+                `${now.toLocaleDateString('en-US', dateOptions)} ${now.toLocaleTimeString('en-US', timeOptions)}`;
+            
+            // Use actual token breakdown data
+            const inputTokens = today.inputTokens || 0;
+            const outputTokens = today.outputTokens || 0;
+            const cacheReadTokens = today.cacheReadTokens || 0;
+            const cacheWriteTokens = today.cacheWriteTokens || 0;
+            
+            // Show just token counts - server calculates actual costs correctly
+            document.getElementById('sessionInputTokens').textContent = formatNumber(inputTokens);
+            document.getElementById('sessionOutputTokens').textContent = formatNumber(outputTokens);
+            document.getElementById('sessionCacheReadTokens').textContent = formatNumber(cacheReadTokens);
+            document.getElementById('sessionCacheWriteTokens').textContent = formatNumber(cacheWriteTokens);
+            
+            document.getElementById('sessionCostWithCache').textContent = formatCurrency(today.totalCost);
+            document.getElementById('sessionCostNoCache').textContent = formatCurrency(today.noCacheCost || today.totalCost);
+            const savings = (today.noCacheCost || today.totalCost) - today.totalCost;
+            const savingsPercent = today.noCacheCost ? (savings / today.noCacheCost * 100) : 0;
+            document.getElementById('sessionCacheSavings').textContent = 
+                `${formatCurrency(today.cacheSavings || savings)} (${savingsPercent.toFixed(1)}%)`;
+        }
+
+        function updateWeekDetails() {
+            const thisWeek = weeklyData[weeklyData.length - 1];
+            if (!thisWeek) return;
+            
+            const weekStart = new Date(thisWeek.weekStart);
+            const weekEnd = new Date(thisWeek.weekEnd);
+            
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const dateOptions = { month: 'short', day: 'numeric' };
+            
+            document.getElementById('sessionStartTime').textContent = 
+                `${weekStart.toLocaleDateString('en-US', dateOptions)}`;
+            document.getElementById('sessionEndTime').textContent = 
+                `${weekEnd.toLocaleDateString('en-US', dateOptions)}`;
+            
+            // Use actual token data if available, otherwise show just totals
+            const inputTokens = thisWeek.inputTokens || 0;
+            const outputTokens = thisWeek.outputTokens || 0;
+            const cacheReadTokens = thisWeek.cacheReadTokens || 0;
+            const cacheWriteTokens = thisWeek.cacheWriteTokens || 0;
+            
+            document.getElementById('sessionInputTokens').textContent = formatNumber(inputTokens);
+            document.getElementById('sessionOutputTokens').textContent = formatNumber(outputTokens);
+            document.getElementById('sessionCacheReadTokens').textContent = formatNumber(cacheReadTokens);
+            document.getElementById('sessionCacheWriteTokens').textContent = formatNumber(cacheWriteTokens);
+            
+            document.getElementById('sessionCostWithCache').textContent = formatCurrency(thisWeek.totalCost);
+            document.getElementById('sessionCostNoCache').textContent = formatCurrency(thisWeek.noCacheCost || thisWeek.totalCost);
+            const savings = thisWeek.cacheSavings || 0;
+            const savingsPercent = thisWeek.noCacheCost ? (savings / thisWeek.noCacheCost * 100) : 0;
+            document.getElementById('sessionCacheSavings').textContent = 
+                `${formatCurrency(savings)} (${savingsPercent.toFixed(1)}%)`;
+        }
+
+        function updateMonthDetails() {
+            const thisMonth = monthlyData[monthlyData.length - 1];
+            if (!thisMonth) return;
+            
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthName = monthNames[parseInt(thisMonth.month) - 1];
+            
+            document.getElementById('sessionStartTime').textContent = 
+                `${monthName} 1, ${thisMonth.year}`;
+            document.getElementById('sessionEndTime').textContent = 
+                `${monthName} ${new Date(thisMonth.year, parseInt(thisMonth.month), 0).getDate()}, ${thisMonth.year}`;
+            
+            // Use actual token data if available
+            const inputTokens = thisMonth.inputTokens || 0;
+            const outputTokens = thisMonth.outputTokens || 0;
+            const cacheReadTokens = thisMonth.cacheReadTokens || 0;
+            const cacheWriteTokens = thisMonth.cacheWriteTokens || 0;
+            
+            document.getElementById('sessionInputTokens').textContent = formatNumber(inputTokens);
+            document.getElementById('sessionOutputTokens').textContent = formatNumber(outputTokens);
+            document.getElementById('sessionCacheReadTokens').textContent = formatNumber(cacheReadTokens);
+            document.getElementById('sessionCacheWriteTokens').textContent = formatNumber(cacheWriteTokens);
+            
+            document.getElementById('sessionCostWithCache').textContent = formatCurrency(thisMonth.totalCost);
+            document.getElementById('sessionCostNoCache').textContent = formatCurrency(thisMonth.noCacheCost || thisMonth.totalCost);
+            const savings = thisMonth.cacheSavings || 0;
+            const savingsPercent = thisMonth.noCacheCost ? (savings / thisMonth.noCacheCost * 100) : 0;
+            document.getElementById('sessionCacheSavings').textContent = 
+                `${formatCurrency(savings)} (${savingsPercent.toFixed(1)}%)`;
+        }
+
+        function updateStats(stats) {
+            currentStats = stats;
+            // Current Session
+            if (stats.currentSession) {
+                document.getElementById('sessionStatus').className = 'status-indicator status-active';
+                
+                // Get current time for calculations
+                const now = new Date();
+                
+                document.getElementById('sessionMessages').textContent = formatNumber(stats.currentSession.tokenUsage.length);
+                document.getElementById('sessionTokens').textContent = formatNumber(stats.currentSession.totalTokens);
+                document.getElementById('sessionCost').textContent = formatCurrency(stats.currentSession.totalCost);
+                
+                // Calculate no-cache cost
+                let noCacheCost = 0;
+                let totalCacheTokens = 0;
+                stats.currentSession.tokenUsage.forEach(usage => {
+                    // Calculate what the cost would be without caching
+                    // All tokens would be charged at full input/output rates
+                    const inputRate = 15; // $15 per million tokens (corrected from 0.015)
+                    const outputRate = 75; // $75 per million tokens
+                    
+                    // Without cache, all cache tokens would be regular input tokens
+                    const totalInputWithoutCache = usage.inputTokens + usage.cacheCreateTokens + usage.cacheReadTokens;
+                    const inputCostWithoutCache = (totalInputWithoutCache / 1000000) * inputRate;
+                    const outputCostWithoutCache = (usage.outputTokens / 1000000) * outputRate;
+                    
+                    noCacheCost += inputCostWithoutCache + outputCostWithoutCache;
+                });
+                
+                const cacheSavings = noCacheCost - stats.currentSession.totalCost;
+                const savingsPercent = noCacheCost > 0 ? (cacheSavings / noCacheCost) * 100 : 0;
+                
+                document.getElementById('sessionCostNoCache').textContent = formatCurrency(noCacheCost);
+                document.getElementById('sessionCacheSavings').textContent = 
+                    `${formatCurrency(cacheSavings)} (${savingsPercent.toFixed(1)}%)`;
+                
+                // Calculate fixed 5-hour usage limit reset
+                const resetHours = [0, 5, 10, 15, 20];
+                const currentHour = now.getUTCHours();
+                
+                let nextResetHour = resetHours.find(hour => hour > currentHour);
+                if (!nextResetHour && nextResetHour !== 0) {
+                    nextResetHour = 24; // Next day at 00:00
+                }
+                
+                const nextReset = new Date(now);
+                if (nextResetHour === 24) {
+                    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+                    nextReset.setUTCHours(0, 0, 0, 0);
+                } else {
+                    nextReset.setUTCHours(nextResetHour, 0, 0, 0);
+                }
+                
+                const msUntilReset = nextReset - now;
+                const hoursUntilReset = Math.floor(msUntilReset / (1000 * 60 * 60));
+                const minsUntilReset = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+                
+                document.getElementById('sessionReset').textContent = `${hoursUntilReset}h ${minsUntilReset}m`;
+                
+                // Calculate messages remaining and usage rate
+                const messagesUsed = stats.currentSession.tokenUsage.length;
+                const messagesLimit = stats.plan.messagesPerSession || 900;
+                const messagesRemaining = Math.max(0, messagesLimit - messagesUsed);
+                
+                const sessionDurationMinutes = (Date.now() - new Date(stats.currentSession.startTime).getTime()) / 1000 / 60;
+                // Require at least 1 minute of data to calculate rate, otherwise show as "--"
+                let messagesPerHour = '--';
+                let messagesPerMinute = 0;
+                
+                if (sessionDurationMinutes >= 1) {
+                    messagesPerMinute = messagesUsed / sessionDurationMinutes;
+                    messagesPerHour = (messagesPerMinute * 60).toFixed(1) + ' msgs/hr';
+                } else if (messagesUsed > 0) {
+                    // Session just started, show message count only
+                    messagesPerHour = 'Just started';
+                }
+                
+                // Will we hit the limit before reset?
+                const minutesUntilReset = stats.timeUntilReset;
+                const projectedMessagesAtReset = messagesUsed + (messagesPerMinute * minutesUntilReset);
+                const willHitLimit = projectedMessagesAtReset > messagesLimit;
+                
+                document.getElementById('messagesRemaining').textContent = 
+                    `${messagesRemaining} / ${messagesLimit}`;
+                document.getElementById('usageRate').textContent = messagesPerHour;
+                
+                // Color code based on remaining capacity
+                const remainingPercent = (messagesRemaining / messagesLimit) * 100;
+                const remainingEl = document.getElementById('messagesRemaining');
+                if (remainingPercent < 10) {
+                    remainingEl.style.color = '#ef4444'; // Red
+                } else if (remainingPercent < 25) {
+                    remainingEl.style.color = '#f59e0b'; // Orange
+                } else {
+                    remainingEl.style.color = '#10b981'; // Green
+                }
+                
+                // Just show the usage rate without the warning (warning is shown in the warnings section)
+                document.getElementById('usageRate').textContent = messagesPerHour;
+                
+                // Calculate token estimates
+                const estimatedTokenLimit = stats.plan.estimatedTokensPerSession || 90000000;
+                const currentTokens = stats.currentSession.totalTokens;
+                // Handle case where actual usage exceeds estimate
+                const tokenPercent = Math.min((currentTokens / estimatedTokenLimit) * 100, 999);
+                
+                // Calculate token burn rate (tokens per minute)
+                let tokensPerMinute = 0;
+                let minutesUntilTokensDeplete = Infinity;
+                
+                if (sessionDurationMinutes >= 1) {
+                    tokensPerMinute = currentTokens / sessionDurationMinutes;
+                    const tokensPerHour = tokensPerMinute * 60;
+                    
+                    // Only estimate depletion if we haven't exceeded the limit
+                    if (currentTokens < estimatedTokenLimit) {
+                        const remainingTokens = estimatedTokenLimit - currentTokens;
+                        minutesUntilTokensDeplete = remainingTokens / tokensPerMinute;
+                    } else {
+                        // Already exceeded
+                        minutesUntilTokensDeplete = -1;
+                    }
+                }
+                
+                // Display token limit info
+                let tokenLimitText;
+                if (currentTokens > estimatedTokenLimit) {
+                    // Exceeded estimate
+                    const excessPercent = ((currentTokens - estimatedTokenLimit) / estimatedTokenLimit * 100).toFixed(0);
+                    tokenLimitText = `${formatNumber(currentTokens)} / ${formatNumber(estimatedTokenLimit)} (+${excessPercent}%)`;
+                } else {
+                    tokenLimitText = `${formatNumber(currentTokens)} / ${formatNumber(estimatedTokenLimit)} (${tokenPercent.toFixed(1)}%)`;
+                }
+                document.getElementById('tokenLimit').textContent = tokenLimitText;
+                
+                // Color code token usage
+                const tokenLimitEl = document.getElementById('tokenLimit');
+                if (currentTokens > estimatedTokenLimit) {
+                    tokenLimitEl.style.color = '#ef4444'; // Red - exceeded estimate
+                } else if (tokenPercent >= 90) {
+                    tokenLimitEl.style.color = '#ef4444'; // Red
+                } else if (tokenPercent >= 70) {
+                    tokenLimitEl.style.color = '#f59e0b'; // Orange
+                } else {
+                    tokenLimitEl.style.color = '#10b981'; // Green
+                }
+                
+                // Display token depletion estimate
+                if (minutesUntilTokensDeplete === -1) {
+                    // Already exceeded estimate
+                    document.getElementById('tokenDepletion').innerHTML = 
+                        '<span style="color: #ef4444;">⚠️ Estimate exceeded</span>';
+                } else if (sessionDurationMinutes < 1) {
+                    // Not enough data
+                    document.getElementById('tokenDepletion').textContent = 'Calculating...';
+                    document.getElementById('tokenDepletion').style.color = '#94a3b8';
+                } else if (minutesUntilTokensDeplete === Infinity || minutesUntilTokensDeplete > 300) {
+                    document.getElementById('tokenDepletion').textContent = 'Low usage';
+                    document.getElementById('tokenDepletion').style.color = '#10b981';
+                } else if (minutesUntilTokensDeplete < minutesUntilReset) {
+                    // Tokens will run out before reset
+                    const hoursUntilDepletion = Math.floor(minutesUntilTokensDeplete / 60);
+                    const minsUntilDepletion = Math.floor(minutesUntilTokensDeplete % 60);
+                    document.getElementById('tokenDepletion').innerHTML = 
+                        `<span style="color: #ef4444;">⚠️ ${hoursUntilDepletion}h ${minsUntilDepletion}m</span>`;
+                } else {
+                    // Tokens will last until reset
+                    const hoursUntilDepletion = Math.floor(minutesUntilTokensDeplete / 60);
+                    const minsUntilDepletion = Math.floor(minutesUntilTokensDeplete % 60);
+                    document.getElementById('tokenDepletion').textContent = 
+                        `${hoursUntilDepletion}h ${minsUntilDepletion}m`;
+                    document.getElementById('tokenDepletion').style.color = '#60a5fa';
+                }
+                
+                // Update period details based on current selection
+                updatePeriodDetails();
+                
+                // Update header warnings
+                const headerWarningsContainer = document.getElementById('headerWarnings');
+                headerWarningsContainer.innerHTML = '';
+                
+                // Also clear the old session warnings container
+                const sessionWarningsContainer = document.getElementById('sessionWarnings');
+                sessionWarningsContainer.style.display = 'none';
+                
+                // Check for various warning conditions
+                const warnings = [];
+                
+                // Token usage warnings
+                if (currentTokens > estimatedTokenLimit) {
+                    warnings.push({
+                        type: 'critical',
+                        message: `Token usage (${formatNumber(currentTokens)}) exceeds estimate (${formatNumber(estimatedTokenLimit)})`
+                    });
+                } else if (tokenPercent >= 90) {
+                    warnings.push({
+                        type: 'critical',
+                        message: `Token usage at ${tokenPercent.toFixed(0)}% of estimated limit`
+                    });
+                } else if (tokenPercent >= 70) {
+                    warnings.push({
+                        type: 'warning',
+                        message: `Token usage at ${tokenPercent.toFixed(0)}% of estimated limit`
+                    });
+                }
+                
+                // Message limit warnings
+                if (remainingPercent < 10) {
+                    warnings.push({
+                        type: 'critical',
+                        message: `Only ${messagesRemaining} messages remaining (${remainingPercent.toFixed(0)}%)`
+                    });
+                } else if (remainingPercent < 25) {
+                    warnings.push({
+                        type: 'warning',
+                        message: `${messagesRemaining} messages remaining (${remainingPercent.toFixed(0)}%)`
+                    });
+                }
+                
+                // Rate limit warnings
+                if (willHitLimit && messagesRemaining > 0 && sessionDurationMinutes >= 1) {
+                    const minutesUntilLimit = messagesRemaining / messagesPerMinute;
+                    const hoursUntilLimit = Math.floor(minutesUntilLimit / 60);
+                    const minsUntilLimit = Math.floor(minutesUntilLimit % 60);
+                    warnings.push({
+                        type: 'warning',
+                        message: `At current rate, message limit will be reached in ${hoursUntilLimit}h ${minsUntilLimit}m`
+                    });
+                }
+                
+                // Token depletion warnings - removed since message limit warning covers this
+                
+                // Display warnings in header
+                warnings.forEach(warning => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `alert ${warning.type}`;
+                    alertDiv.style.cssText = `
+                        padding: 0.5rem 1rem;
+                        font-size: 0.875rem;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                        white-space: nowrap;
+                    `;
+                    alertDiv.innerHTML = `⚠️ ${warning.message}`;
+                    headerWarningsContainer.appendChild(alertDiv);
+                });
+            } else {
+                document.getElementById('sessionStatus').className = 'status-indicator status-inactive';
+                document.getElementById('sessionMessages').textContent = '--';
+                document.getElementById('sessionTokens').textContent = '--';
+                document.getElementById('sessionCost').textContent = '--';
+                document.getElementById('sessionReset').textContent = '--';
+                document.getElementById('messagesRemaining').textContent = '--';
+                document.getElementById('usageRate').textContent = '--';
+                document.getElementById('tokenLimit').textContent = '--';
+                document.getElementById('tokenDepletion').textContent = '--';
+                document.getElementById('sessionStartTime').textContent = '--';
+                document.getElementById('sessionEndTime').textContent = '--';
+                document.getElementById('sessionInputTokens').textContent = '--';
+                document.getElementById('sessionOutputTokens').textContent = '--';
+                document.getElementById('sessionCacheReadTokens').textContent = '--';
+                document.getElementById('sessionCacheWriteTokens').textContent = '--';
+                document.getElementById('sessionCostWithCache').textContent = '--';
+                document.getElementById('sessionCostNoCache').textContent = '--';
+                document.getElementById('sessionCacheSavings').textContent = '--';
+                
+                // Clear warnings from both locations
+                document.getElementById('sessionWarnings').innerHTML = '';
+                document.getElementById('headerWarnings').innerHTML = '';
+                
+                // Still show plan reset times even without active session
+                const now = new Date();
+                
+                // Fixed 5-hour windows: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
+                const resetHours = [0, 5, 10, 15, 20];
+                const currentHour = now.getUTCHours();
+                
+                let nextResetHour = resetHours.find(hour => hour > currentHour);
+                if (!nextResetHour) {
+                    nextResetHour = 24; // Next day at 00:00
+                }
+                
+                const nextReset = new Date(now);
+                if (nextResetHour === 24) {
+                    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+                    nextReset.setUTCHours(0, 0, 0, 0);
+                } else {
+                    nextReset.setUTCHours(nextResetHour, 0, 0, 0);
+                }
+                
+                const msUntilReset = nextReset - now;
+                const hoursUntilReset = Math.floor(msUntilReset / (1000 * 60 * 60));
+                const minsUntilReset = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+                
+                const nextMonthReset = new Date(now);
+                nextMonthReset.setUTCMonth(nextMonthReset.getUTCMonth() + 1);
+                nextMonthReset.setUTCDate(1);
+                nextMonthReset.setUTCHours(0, 0, 0, 0);
+                const daysUntilMonthReset = Math.floor((nextMonthReset - now) / (1000 * 60 * 60 * 24));
+                
+                document.getElementById('dailyReset').innerHTML = `5-Hour Reset<br><span style="font-size: 0.9em;">${hoursUntilReset}h ${minsUntilReset}m</span>`;
+                document.getElementById('monthlyReset').textContent = `${daysUntilMonthReset} days`;
+            }
+
+            // Today's Usage
+            document.getElementById('todayMessages').textContent = formatNumber(stats.todayPrompts);
+            document.getElementById('todayTokens').textContent = formatNumber(stats.todayTokens);
+            document.getElementById('todayCost').textContent = formatCurrency(stats.dailyCost);
+            document.getElementById('todaySessions').textContent = stats.sessionsToday;
+            document.getElementById('plan').textContent = stats.plan.name;
+            
+            // Update plan selector to match current plan
+            const planSelector = document.getElementById('planSelector');
+            if (planSelector.value !== stats.plan.name) {
+                planSelector.value = stats.plan.name;
+            }
+            
+            // Update plan cost display
+            document.getElementById('planCostLabel').textContent = `${stats.plan.name} Plan Cost`;
+            document.getElementById('planCost').textContent = formatCurrency(stats.plan.monthlyCost);
+            
+            // Calculate fixed 5-hour reset schedule
+            const now = new Date();
+            
+            // Fixed 5-hour windows: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
+            const resetHours = [0, 5, 10, 15, 20];
+            const currentHour = now.getUTCHours();
+            
+            // Find next reset hour
+            let nextResetHour = resetHours.find(hour => hour > currentHour);
+            if (!nextResetHour) {
+                nextResetHour = 24; // Next day at 00:00
+            }
+            
+            const nextReset = new Date(now);
+            if (nextResetHour === 24) {
+                nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+                nextReset.setUTCHours(0, 0, 0, 0);
+            } else {
+                nextReset.setUTCHours(nextResetHour, 0, 0, 0);
+            }
+            
+            const msUntilReset = nextReset - now;
+            const hoursUntilReset = Math.floor(msUntilReset / (1000 * 60 * 60));
+            const minsUntilReset = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+            
+            // Monthly reset (assume 1st of month)
+            const nextMonthReset = new Date(now);
+            nextMonthReset.setUTCMonth(nextMonthReset.getUTCMonth() + 1);
+            nextMonthReset.setUTCDate(1);
+            nextMonthReset.setUTCHours(0, 0, 0, 0);
+            const daysUntilMonthReset = Math.floor((nextMonthReset - now) / (1000 * 60 * 60 * 24));
+            
+            document.getElementById('dailyReset').innerHTML = `5-Hour Reset<br><span style="font-size: 0.9em;">${hoursUntilReset}h ${minsUntilReset}m</span>`;
+            document.getElementById('monthlyReset').textContent = `${daysUntilMonthReset} days`;
+
+            // Show refresh indicator
+            const indicator = document.getElementById('refreshIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => indicator.classList.remove('show'), 2000);
+        }
+
+
+        let currentChart = 'daily';
+        let weeklyData = [];
+        let monthlyData = [];
+        let dailyData = [];
+        let currentStats = null;
+        let selectedPeriod = 'session';
+
+        function showChart(chartType) {
+            currentChart = chartType;
+            
+            // Update tab active states
+            document.querySelectorAll('.chart-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(chartType + 'Tab').classList.add('active');
+            
+            // Update chart view visibility
+            document.querySelectorAll('.chart-view').forEach(view => view.classList.remove('active'));
+            document.getElementById(chartType + 'Chart').classList.add('active');
+            
+            // Update chart data
+            if (chartType === 'weekly') {
+                updateWeeklyChart();
+            } else if (chartType === 'monthly') {
+                updateMonthlyChart();
+            }
+        }
+
+        function updateChart(dailyStats) {
+            const chartContainer = document.querySelector('#dailyChart > div');
+            chartContainer.innerHTML = '';
+
+            if (!dailyStats || dailyStats.length === 0) {
+                chartContainer.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 2rem;">No data available</div>';
+                return;
+            }
+
+            const maxCost = Math.max(...dailyStats.map(d => d.totalCost));
+            
+            dailyStats.slice(-7).forEach(day => {
+                const date = new Date(day.date);
+                const dayName = date.toLocaleDateString('en', { weekday: 'short' });
+                const height = maxCost > 0 ? (day.totalCost / maxCost) * 150 : 5;
+                
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    flex: 1;
+                `;
+                
+                bar.innerHTML = `
+                    <div style="
+                        width: 40px;
+                        height: ${height}px;
+                        background: linear-gradient(135deg, #3b82f6, #60a5fa);
+                        border-radius: 4px 4px 0 0;
+                        margin-bottom: 0.5rem;
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                    " title="${formatCurrency(day.totalCost)} on ${date.toLocaleDateString()}"></div>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">${dayName}</div>
+                    <div style="font-size: 0.7rem; color: #64748b;">${formatCurrency(day.totalCost)}</div>
+                `;
+                
+                chartContainer.appendChild(bar);
+            });
+        }
+
+        function updateWeeklyChart() {
+            const chartContainer = document.querySelector('#weeklyChart > div');
+            chartContainer.innerHTML = '';
+
+            // Create a map of existing week data
+            const weekDataMap = new Map();
+            if (weeklyData && weeklyData.length > 0) {
+                weeklyData.forEach(week => {
+                    weekDataMap.set(week.weekStart, week);
+                });
+            }
+
+            // Calculate the last 6 weeks
+            const now = new Date();
+            const currentWeekStart = new Date(now);
+            const day = currentWeekStart.getDay();
+            const diff = currentWeekStart.getDate() - day; // Sunday is 0
+            currentWeekStart.setDate(diff);
+            currentWeekStart.setHours(0, 0, 0, 0);
+
+            const weeksToShow = [];
+            for (let i = 5; i >= 0; i--) {
+                const weekStart = new Date(currentWeekStart);
+                weekStart.setDate(weekStart.getDate() - (i * 7));
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                
+                const weekKey = weekStart.toISOString().split('T')[0];
+                const weekData = weekDataMap.get(weekKey) || {
+                    weekStart: weekKey,
+                    weekEnd: weekEnd.toISOString().split('T')[0],
+                    totalCost: 0,
+                    totalTokens: 0,
+                    sessions: 0
+                };
+                weeksToShow.push(weekData);
+            }
+
+            const maxCost = Math.max(...weeksToShow.map(w => w.totalCost), 0.01); // Ensure minimum for scaling
+            
+            weeksToShow.forEach(week => {
+                const startDate = new Date(week.weekStart);
+                const endDate = new Date(week.weekEnd);
+                const weekLabel = `${startDate.getDate()}–${endDate.getDate()} ${startDate.toLocaleDateString('en', { month: 'short' })}`;
+                const height = week.totalCost > 0 ? (week.totalCost / maxCost) * 150 : 5;
+                const hasData = week.totalCost > 0;
+                
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    flex: 1;
+                `;
+                
+                bar.innerHTML = `
+                    <div style="
+                        width: 50px;
+                        height: ${height}px;
+                        background: ${hasData ? 'linear-gradient(135deg, #10b981, #34d399)' : '#334155'};
+                        border-radius: 4px 4px 0 0;
+                        margin-bottom: 0.5rem;
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                        opacity: ${hasData ? '1' : '0.3'};
+                    " title="${hasData ? formatCurrency(week.totalCost) + ' for week of ' + startDate.toLocaleDateString() : 'No data for this week'}"></div>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">${weekLabel}</div>
+                    <div style="font-size: 0.7rem; color: ${hasData ? '#64748b' : '#334155'};">${hasData ? formatCurrency(week.totalCost) : '--'}</div>
+                `;
+                
+                chartContainer.appendChild(bar);
+            });
+        }
+
+        function updateMonthlyChart() {
+            const chartContainer = document.querySelector('#monthlyChart > div');
+            chartContainer.innerHTML = '';
+
+            // Create a map of existing month data
+            const monthDataMap = new Map();
+            if (monthlyData && monthlyData.length > 0) {
+                monthlyData.forEach(month => {
+                    const monthKey = `${month.year}-${month.month.padStart(2, '0')}`;
+                    monthDataMap.set(monthKey, month);
+                });
+            }
+
+            // Calculate the last 3 months
+            const now = new Date();
+            const monthsToShow = [];
+            for (let i = 2; i >= 0; i--) {
+                const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const year = targetDate.getFullYear();
+                const month = (targetDate.getMonth() + 1).toString().padStart(2, '0');
+                const monthKey = `${year}-${month}`;
+                
+                const monthData = monthDataMap.get(monthKey) || {
+                    month: month,
+                    year: year,
+                    totalCost: 0,
+                    apiEquivalentCost: 0,
+                    savings: 0,
+                    totalTokens: 0,
+                    sessions: 0
+                };
+                monthsToShow.push(monthData);
+            }
+
+            const maxCost = Math.max(...monthsToShow.map(m => m.totalCost), 0.01); // Ensure minimum for scaling
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            monthsToShow.forEach(month => {
+                const monthLabel = monthNames[parseInt(month.month) - 1] + " '" + month.year.toString().slice(-2);
+                const height = month.totalCost > 0 ? (month.totalCost / maxCost) * 150 : 5;
+                const hasData = month.totalCost > 0;
+                
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    flex: 1;
+                `;
+                
+                bar.innerHTML = `
+                    <div style="
+                        width: 60px;
+                        height: ${height}px;
+                        background: ${hasData ? 'linear-gradient(135deg, #f59e0b, #fbbf24)' : '#334155'};
+                        border-radius: 4px 4px 0 0;
+                        margin-bottom: 0.5rem;
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                        opacity: ${hasData ? '1' : '0.3'};
+                    " title="${hasData ? formatCurrency(month.totalCost) + ' for ' + monthLabel + '. Saved ' + formatCurrency(month.savings) : 'No data for this month'}"></div>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">${monthLabel}</div>
+                    <div style="font-size: 0.7rem; color: ${hasData ? '#64748b' : '#334155'};">${hasData ? formatCurrency(month.totalCost) : '--'}</div>
+                `;
+                
+                chartContainer.appendChild(bar);
+            });
+        }
+
+        function updateSavings() {
+            if (monthlyData && monthlyData.length > 0) {
+                // This month (current/latest month)
+                const currentMonth = monthlyData[monthlyData.length - 1];
+                document.getElementById('apiCost').textContent = formatCurrency(currentMonth.apiEquivalentCost);
+                document.getElementById('planCost').textContent = formatCurrency(currentMonth.planCost);
+                
+                const savingsEl = document.getElementById('savings');
+                const savingsLabel = document.getElementById('savingsLabel');
+                
+                if (currentMonth.apiEquivalentCost > currentMonth.planCost) {
+                    savingsLabel.textContent = 'Savings';
+                    savingsEl.textContent = formatCurrency(currentMonth.apiEquivalentCost - currentMonth.planCost);
+                    savingsEl.style.color = '#10b981';
+                } else {
+                    savingsLabel.textContent = 'Premium';
+                    savingsEl.textContent = formatCurrency(currentMonth.planCost - currentMonth.apiEquivalentCost);
+                    savingsEl.style.color = '#94a3b8';
+                }
+                
+                // Last month (if available)
+                if (monthlyData.length > 1) {
+                    const lastMonth = monthlyData[monthlyData.length - 2];
+                    document.getElementById('lastMonthApiCost').textContent = formatCurrency(lastMonth.apiEquivalentCost);
+                    document.getElementById('lastMonthPlanCost').textContent = formatCurrency(lastMonth.planCost);
+                    
+                    const lastMonthSavingsEl = document.getElementById('lastMonthSavings');
+                    const lastMonthSavingsLabel = document.getElementById('lastMonthSavingsLabel');
+                    
+                    if (lastMonth.apiEquivalentCost > lastMonth.planCost) {
+                        lastMonthSavingsLabel.textContent = 'Savings';
+                        lastMonthSavingsEl.textContent = formatCurrency(lastMonth.apiEquivalentCost - lastMonth.planCost);
+                        lastMonthSavingsEl.style.color = '#10b981';
+                    } else {
+                        lastMonthSavingsLabel.textContent = 'Premium';
+                        lastMonthSavingsEl.textContent = formatCurrency(lastMonth.planCost - lastMonth.apiEquivalentCost);
+                        lastMonthSavingsEl.style.color = '#94a3b8';
+                    }
+                } else {
+                    // No last month data
+                    document.getElementById('lastMonthApiCost').textContent = '--';
+                    document.getElementById('lastMonthPlanCost').textContent = '--';
+                    document.getElementById('lastMonthSavings').textContent = '--';
+                }
+            }
+        }
+
+        function connectEventSource() {
+            const projectParam = currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+            eventSource = new EventSource(`/api/stream${projectParam}`);
+            
+            eventSource.onmessage = function(event) {
+                const stats = JSON.parse(event.data);
+                updateStats(stats);
+                
+                // Hide loading, show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            };
+            
+            eventSource.onerror = function(event) {
+                console.error('EventSource error:', event);
+                // Try to reconnect after 5 seconds
+                setTimeout(() => {
+                    eventSource.close();
+                    connectEventSource();
+                }, 5000);
+            };
+        }
+
+        // Load all stats
+        async function loadDailyStats() {
+            try {
+                const projectParam = currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+                const response = await fetch(`/api/daily${projectParam}`);
+                dailyData = await response.json();
+                updateChart(dailyData);
+                updatePeriodDetails(); // Update period details if day view is selected
+            } catch (error) {
+                console.error('Failed to load daily stats:', error);
+            }
+        }
+
+        async function loadWeeklyStats() {
+            try {
+                const projectParam = currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+                const weeksParam = projectParam ? `${projectParam}&weeks=6` : '?weeks=6';
+                const response = await fetch(`/api/weekly${weeksParam}`);
+                weeklyData = await response.json();
+                console.log('Weekly data loaded:', weeklyData);
+                if (currentChart === 'weekly') {
+                    updateWeeklyChart();
+                }
+            } catch (error) {
+                console.error('Failed to load weekly stats:', error);
+            }
+        }
+
+        async function loadMonthlyStats() {
+            try {
+                const projectParam = currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+                const response = await fetch(`/api/monthly${projectParam}`);
+                monthlyData = await response.json();
+                console.log('Monthly data loaded:', monthlyData);
+                if (currentChart === 'monthly') {
+                    updateMonthlyChart();
+                }
+                updateSavings();
+            } catch (error) {
+                console.error('Failed to load monthly stats:', error);
+            }
+        }
+
+        function updateSystemTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('en-US', { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('systemTime').textContent = `System Time: ${timeStr}`;
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+                const projects = await response.json();
+                const select = document.getElementById('projectFilter');
+                
+                // Clear existing options except the first one
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                
+                // Add project options
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project;
+                    option.textContent = project;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load projects:', error);
+            }
+        }
+        
+        // Handle period selector change
+        document.getElementById('periodSelector').addEventListener('change', (e) => {
+            selectedPeriod = e.target.value;
+            updatePeriodDetails();
+        });
+        
+        // Handle project filter change
+        document.getElementById('projectFilter').addEventListener('change', (e) => {
+            currentProject = e.target.value;
+            
+            // Close existing event source
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            // Reload everything with new project filter
+            connectEventSource();
+            loadDailyStats();
+            loadWeeklyStats();
+            loadMonthlyStats();
+        });
+        
+        // Handle plan selector change
+        document.getElementById('planSelector').addEventListener('change', async (e) => {
+            const selectedPlan = e.target.value;
+            
+            try {
+                // Send plan change to server
+                const response = await fetch('/api/plan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ plan: selectedPlan })
+                });
+                
+                if (response.ok) {
+                    // Close existing event source and reconnect to get updated stats
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    connectEventSource();
+                    loadDailyStats();
+                    loadWeeklyStats();
+                    loadMonthlyStats();
+                } else {
+                    console.error('Failed to update plan');
+                }
+            } catch (error) {
+                console.error('Error updating plan:', error);
+            }
+        });
+
+        // Initialize
+        loadProjects();
+        connectEventSource();
+        loadDailyStats();
+        loadWeeklyStats();
+        loadMonthlyStats();
+        updateSystemTime();
+        
+        // Update system time every second
+        setInterval(updateSystemTime, 1000);
+        
+        // Reload stats every 5 minutes
+        setInterval(() => {
+            loadDailyStats();
+            loadWeeklyStats();
+            loadMonthlyStats();
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
