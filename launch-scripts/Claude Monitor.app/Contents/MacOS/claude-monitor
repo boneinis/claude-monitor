@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Get the directory where the app bundle is located
+APP_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
+
+# Open Terminal and run the command
+osascript -e "
+tell application \"Terminal\"
+    activate
+    do script \"cd \\\"$APP_DIR\\\" && ./launch-scripts/\\\"Claude Monitor.command\\\"\"
+end tell
+"
