@@ -2,16 +2,21 @@ import { DataLoader } from './DataLoader';
 import { Session, Plan, Alert, TokenUsage, DailyStats, WeeklyStats, MonthlyStats } from '../types';
 import { PLANS, MODEL_COSTS } from './constants';
 import { formatCurrency } from '../utils/formatters';
+import { SimpleCache } from './Cache';
 
 export class MonitorEngine {
   private dataLoader: DataLoader;
   private plan: Plan;
   private alerts: Alert[] = [];
   private updateCallbacks: Array<() => void> = [];
+  private cache = new SimpleCache();
 
   constructor(dataLoader: DataLoader, plan: Plan = PLANS.Pro) {
     this.dataLoader = dataLoader;
     this.plan = plan;
+    
+    // Periodically clean up expired cache entries
+    setInterval(() => this.cache.cleanup(), 60000); // Every minute
   }
 
   async getProjects(): Promise<string[]> {
@@ -52,6 +57,10 @@ export class MonitorEngine {
   }
 
   async getDailyStats(days: number = 7, projectName?: string): Promise<DailyStats[]> {
+    const cacheKey = `daily_${days}_${projectName || 'all'}`;
+    const cached = this.cache.get<DailyStats[]>(cacheKey);
+    if (cached) return cached;
+
     const allUsage = await this.dataLoader.loadRecentData(days * 24, projectName);
     const statsByDay = new Map<string, DailyStats>();
     
@@ -118,14 +127,19 @@ export class MonitorEngine {
       stats.cacheSavings = stats.noCacheCost! - stats.totalCost;
     });
     
-    return Array.from(statsByDay.values()).sort((a, b) => 
+    const result = Array.from(statsByDay.values()).sort((a, b) => 
       a.date.localeCompare(b.date)
     );
+    
+    // Cache for 30 seconds
+    this.cache.set(cacheKey, result, 30000);
+    return result;
   }
 
   async getWeeklyStats(weeks: number = 4, projectName?: string): Promise<WeeklyStats[]> {
-    // Load all data to ensure we have enough history
-    const allUsage = await this.dataLoader.loadAllData(projectName);
+    // Only load data for the requested weeks to avoid memory issues
+    const weeksInHours = weeks * 7 * 24;
+    const allUsage = await this.dataLoader.loadRecentData(weeksInHours, projectName);
     const weeklyStats: WeeklyStats[] = [];
     
     // Group usage by week (Sunday to Saturday)
@@ -219,8 +233,9 @@ export class MonitorEngine {
   }
 
   async getMonthlyStats(months: number = 3, projectName?: string): Promise<MonthlyStats[]> {
-    // Load all data to ensure we have enough history
-    const allUsage = await this.dataLoader.loadAllData(projectName);
+    // Only load data for the requested months to avoid memory issues
+    const monthsInHours = months * 30 * 24;
+    const allUsage = await this.dataLoader.loadRecentData(monthsInHours, projectName);
     const monthlyStats: MonthlyStats[] = [];
     
     // Group usage by month
@@ -378,36 +393,41 @@ export class MonitorEngine {
   }
 
   private calculateTimeUntilReset(session: Session | undefined): number {
-    if (!session) {
+    if (!session || !session.endTime) {
       return 0;
     }
     
-    const sessionEnd = new Date(session.startTime.getTime() + 5 * 60 * 60 * 1000); // 5 hours from start
+    const sessionEnd = session.endTime;
     const now = new Date();
     
     return Math.max(0, Math.round((sessionEnd.getTime() - now.getTime()) / 1000 / 60)); // minutes
   }
 
-  private countSessionsToday(): number {
-    const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setUTCHours(0, 0, 0, 0);
+  private async countSessionsTodayAsync(): Promise<number> {
+    // Sessions are created on-demand when activity starts, not on a fixed schedule
+    // So we need to count actual sessions from today's data
+    const todayUsage = await this.dataLoader.loadTodayData();
+    if (todayUsage.length === 0) return 0;
     
-    // Fixed 5-hour reset windows: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
-    const resetHours = [0, 5, 10, 15, 20];
-    let count = 0;
+    // Group usage by session (5-hour windows starting at hour of first activity)
+    const sessions = new Set<string>();
     
-    for (const hour of resetHours) {
-      const resetTime = new Date(todayStart);
-      resetTime.setUTCHours(hour, 0, 0, 0);
-      
-      // Count if this reset has already happened today
-      if (resetTime <= now) {
-        count++;
-      }
+    for (const u of todayUsage) {
+      const usageTime = new Date(u.timestamp);
+      const sessionStart = new Date(usageTime);
+      sessionStart.setMinutes(0, 0, 0);
+      sessions.add(sessionStart.toISOString());
     }
     
-    return count;
+    return sessions.size;
+  }
+
+  private countSessionsToday(): number {
+    // For synchronous use, return estimate based on hours passed
+    // Maximum possible is 5 sessions per day (24/5 = 4.8)
+    const now = new Date();
+    const hoursPassed = now.getHours() + (now.getMinutes() / 60);
+    return Math.min(Math.ceil(hoursPassed / 5), 5);
   }
 
   private calculateEfficiency(usage: TokenUsage[]): number {

@@ -43,15 +43,35 @@ class DataLoader {
     projectPath;
     constructor(projectPath) {
         this.projectPath = projectPath || path.join(os.homedir(), '.claude', 'projects');
+        // Ensure the path exists and is a directory
+        if (!fs.existsSync(this.projectPath)) {
+            throw new Error(`Claude projects directory not found: ${this.projectPath}`);
+        }
+        if (!fs.statSync(this.projectPath).isDirectory()) {
+            throw new Error(`Path is not a directory: ${this.projectPath}`);
+        }
     }
     async getProjects() {
         const pattern = path.join(this.projectPath, '*');
-        const dirs = await (0, glob_1.glob)(pattern);
+        let dirs;
+        try {
+            dirs = await (0, glob_1.glob)(pattern);
+        }
+        catch (error) {
+            console.error('Error scanning for projects:', error);
+            return [];
+        }
         const projects = [];
         for (const dir of dirs) {
-            const stats = fs.statSync(dir);
-            if (stats.isDirectory()) {
-                projects.push(path.basename(dir));
+            try {
+                const stats = fs.statSync(dir);
+                if (stats.isDirectory()) {
+                    projects.push(path.basename(dir));
+                }
+            }
+            catch (error) {
+                console.error(`Error checking directory ${dir}:`, error);
+                // Continue with other directories
             }
         }
         return projects.sort();
@@ -94,78 +114,72 @@ class DataLoader {
     }
     async getCurrentSessions(projectName) {
         const now = new Date();
-        const recentUsage = await this.loadRecentData(constants_1.SESSION_WINDOW_HOURS * 3, projectName); // Get more data to ensure we have full sessions
+        // Only load 12 hours of data (enough for 2+ sessions)
+        const recentUsage = await this.loadRecentData(12, projectName);
         if (recentUsage.length === 0) {
             return [];
         }
-        // Reset windows based on user observations: UTC 0, 3, 9, 14, 19 (8pm, 11pm, 5am, 10am, 3pm EDT)
-        const resetHours = [0, 3, 9, 14, 19];
-        // Get the last reset time before now
-        const currentHour = now.getUTCHours();
-        const currentMinutes = now.getUTCMinutes();
-        let lastResetHour = resetHours.filter(h => h <= currentHour).pop();
-        if (lastResetHour === undefined || (lastResetHour === currentHour && currentMinutes === 0)) {
-            // We're before the first reset of the day or exactly at a reset time
-            lastResetHour = resetHours[resetHours.length - 1]; // Use yesterday's last reset
-        }
-        const lastResetTime = new Date(now);
-        lastResetTime.setUTCHours(lastResetHour, 0, 0, 0);
-        // If the calculated reset time is in the future, go back one day
-        if (lastResetTime > now) {
-            lastResetTime.setUTCDate(lastResetTime.getUTCDate() - 1);
-        }
-        // Get previous reset time (find the previous reset hour)
-        const previousResetTime = new Date(lastResetTime);
-        const lastResetIndex = resetHours.indexOf(lastResetHour);
-        const previousResetIndex = lastResetIndex > 0 ? lastResetIndex - 1 : resetHours.length - 1;
-        const previousResetHour = resetHours[previousResetIndex];
-        previousResetTime.setUTCHours(previousResetHour, 0, 0, 0);
-        if (previousResetHour > lastResetHour) {
-            // Previous reset was yesterday
-            previousResetTime.setUTCDate(previousResetTime.getUTCDate() - 1);
-        }
-        // Get next reset time
-        let nextResetHour = resetHours.find(h => h > currentHour);
-        const nextResetTime = new Date(now);
-        if (nextResetHour === undefined) {
-            // Next reset is tomorrow at 00:00
-            nextResetTime.setUTCDate(nextResetTime.getUTCDate() + 1);
-            nextResetTime.setUTCHours(0, 0, 0, 0);
-        }
-        else {
-            nextResetTime.setUTCHours(nextResetHour, 0, 0, 0);
-        }
-        // Filter usage data for current and previous reset windows
+        // Sessions work as follows:
+        // 1. Session starts at the beginning of the hour when activity begins
+        // 2. Session lasts exactly 5 hours from that start hour
+        // 3. New sessions don't auto-start - they begin when there's new activity
         const sessions = [];
-        // Current reset window
-        const currentWindowUsage = recentUsage.filter(u => {
-            const timestamp = new Date(u.timestamp);
-            return timestamp >= lastResetTime && timestamp < nextResetTime;
-        });
-        if (currentWindowUsage.length > 0) {
+        let sessionStartTime = null;
+        let sessionEndTime = null;
+        let currentSessionUsage = [];
+        // Process usage chronologically to identify session boundaries
+        for (let i = 0; i < recentUsage.length; i++) {
+            const usage = recentUsage[i];
+            const usageTime = new Date(usage.timestamp);
+            if (!sessionStartTime) {
+                // First usage - start new session at beginning of this hour
+                sessionStartTime = new Date(usageTime);
+                sessionStartTime.setMinutes(0, 0, 0);
+                sessionEndTime = new Date(sessionStartTime);
+                sessionEndTime.setHours(sessionEndTime.getHours() + 5);
+                currentSessionUsage = [usage];
+            }
+            else if (usageTime >= sessionEndTime) {
+                // This usage is outside current session - save current session and start new one
+                if (currentSessionUsage.length > 0) {
+                    sessions.push({
+                        id: sessionStartTime.toISOString(),
+                        startTime: sessionStartTime,
+                        endTime: sessionEndTime,
+                        tokenUsage: currentSessionUsage,
+                        totalTokens: currentSessionUsage.reduce((sum, e) => sum + e.totalTokens, 0),
+                        totalCost: currentSessionUsage.reduce((sum, e) => sum + e.cost, 0)
+                    });
+                }
+                // Start new session at beginning of hour for this usage
+                sessionStartTime = new Date(usageTime);
+                sessionStartTime.setMinutes(0, 0, 0);
+                sessionEndTime = new Date(sessionStartTime);
+                sessionEndTime.setHours(sessionEndTime.getHours() + 5);
+                currentSessionUsage = [usage];
+            }
+            else {
+                // Usage within current session
+                currentSessionUsage.push(usage);
+            }
+        }
+        // Don't forget to add the last session
+        if (sessionStartTime && currentSessionUsage.length > 0) {
             sessions.push({
-                id: lastResetTime.toISOString(),
-                startTime: lastResetTime,
-                endTime: nextResetTime,
-                tokenUsage: currentWindowUsage,
-                totalTokens: currentWindowUsage.reduce((sum, e) => sum + e.totalTokens, 0),
-                totalCost: currentWindowUsage.reduce((sum, e) => sum + e.cost, 0)
+                id: sessionStartTime.toISOString(),
+                startTime: sessionStartTime,
+                endTime: sessionEndTime,
+                tokenUsage: currentSessionUsage,
+                totalTokens: currentSessionUsage.reduce((sum, e) => sum + e.totalTokens, 0),
+                totalCost: currentSessionUsage.reduce((sum, e) => sum + e.cost, 0)
             });
         }
-        // Previous reset window
-        const previousWindowUsage = recentUsage.filter(u => {
-            const timestamp = new Date(u.timestamp);
-            return timestamp >= previousResetTime && timestamp < lastResetTime;
-        });
-        if (previousWindowUsage.length > 0) {
-            sessions.push({
-                id: previousResetTime.toISOString(),
-                startTime: previousResetTime,
-                endTime: lastResetTime,
-                tokenUsage: previousWindowUsage,
-                totalTokens: previousWindowUsage.reduce((sum, e) => sum + e.totalTokens, 0),
-                totalCost: previousWindowUsage.reduce((sum, e) => sum + e.cost, 0)
-            });
+        // If the most recent session has ended and we're past its end time,
+        // show it as the "current" session with 0 time remaining
+        const mostRecentSession = sessions[0];
+        if (mostRecentSession && mostRecentSession.endTime && now > mostRecentSession.endTime) {
+            // No active session - the most recent one has expired
+            // Dashboard will show this with "0h 0m" remaining
         }
         // Sort by start time descending (most recent first)
         return sessions.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
@@ -182,7 +196,14 @@ class DataLoader {
         });
     }
     async parseJsonlFile(filePath, projectName) {
-        const content = fs.readFileSync(filePath, 'utf-8');
+        let content;
+        try {
+            content = fs.readFileSync(filePath, 'utf-8');
+        }
+        catch (error) {
+            console.error(`Error reading file ${filePath}:`, error);
+            return [];
+        }
         const lines = content.trim().split('\n');
         const usage = [];
         const currentDate = new Date();

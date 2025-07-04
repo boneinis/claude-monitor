@@ -155,10 +155,10 @@ async function showDailyReport(monitor: MonitorEngine) {
   if (today && today.cacheCost) {
     const nonCacheCost = today.totalCost - today.cacheCost;
     console.log(`\nToday's Cost Breakdown:`);
-    console.log(`  Regular tokens: $${nonCacheCost.toFixed(3)} (${((nonCacheCost / today.totalCost) * 100).toFixed(1)}%)`);
-    console.log(`  Cache costs: $${today.cacheCost.toFixed(3)} (${((today.cacheCost / today.totalCost) * 100).toFixed(1)}%)`);
+    console.log(`  Regular tokens: $${nonCacheCost.toFixed(3)} (${today.totalCost > 0 ? ((nonCacheCost / today.totalCost) * 100).toFixed(1) : '0'}%)`);
+    console.log(`  Cache costs: $${today.cacheCost.toFixed(3)} (${today.totalCost > 0 ? ((today.cacheCost / today.totalCost) * 100).toFixed(1) : '0'}%)`);
     console.log(`  Without cache: $${today.noCacheCost?.toFixed(3) || 'N/A'}`);
-    console.log(`  Savings: $${today.cacheSavings?.toFixed(3) || '0'} (${((today.cacheSavings! / today.noCacheCost!) * 100).toFixed(1)}%)`);
+    console.log(`  Savings: $${today.cacheSavings?.toFixed(3) || '0'} (${today.noCacheCost && today.noCacheCost > 0 ? ((today.cacheSavings! / today.noCacheCost) * 100).toFixed(1) : '0'}%)`);
   }
   
   if (stats.currentSession) {

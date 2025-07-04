@@ -55,48 +55,54 @@ class TerminalUI {
     }
     createWidgets() {
         const header = this.grid.set(0, 0, 2, 12, blessed.box, {
-            label: 'Claude Usage Monitor',
-            content: '\n Note: Anthropic may allow usage overages beyond base limits',
+            label: ' Claude Monitor ',
+            content: '\n {magenta-fg}◉{/} Real-time usage tracking for Claude',
+            tags: true,
             border: { type: 'line' },
             style: {
-                border: { fg: 'blue' },
+                border: { fg: 'magenta' },
+                label: { fg: 'white', bold: true },
                 fg: 'white'
             }
         });
         const currentUsage = this.grid.set(2, 0, 4, 6, blessed.box, {
-            label: 'Current Session',
+            label: ' Current Session ',
             border: { type: 'line' },
             style: {
-                border: { fg: 'green' }
+                border: { fg: 'magenta' },
+                label: { fg: 'white', bold: true }
             }
         });
         const todayStats = this.grid.set(2, 6, 4, 6, blessed.box, {
-            label: 'Today\'s Usage',
+            label: ' Today\'s Usage ',
             border: { type: 'line' },
             style: {
-                border: { fg: 'yellow' }
+                border: { fg: 'magenta' },
+                label: { fg: 'white', bold: true }
             }
         });
         const recentActivity = this.grid.set(6, 0, 4, 8, blessed.box, {
-            label: 'Recent Activity (Last 7 days)',
+            label: ' Recent Activity ',
             border: { type: 'line' },
             style: {
-                border: { fg: 'cyan' }
+                border: { fg: 'magenta' },
+                label: { fg: 'white', bold: true }
             }
         });
         const alerts = this.grid.set(6, 8, 4, 4, blessed.box, {
-            label: 'Alerts & Status',
+            label: ' Status ',
             border: { type: 'line' },
             style: {
-                border: { fg: 'red' }
+                border: { fg: 'magenta' },
+                label: { fg: 'white', bold: true }
             }
         });
         const footer = this.grid.set(10, 0, 2, 12, blessed.box, {
-            content: ' [r] Refresh  [q] Quit  [?] Help',
+            content: ' {magenta-fg}[r]{/} Refresh  {magenta-fg}[q]{/} Quit  {magenta-fg}[?]{/} Help  {magenta-fg}[p]{/} Projects',
+            tags: true,
             align: 'center',
             style: {
-                fg: 'white',
-                bg: 'black'
+                fg: 'white'
             }
         });
         return {
@@ -154,7 +160,7 @@ class TerminalUI {
     updateHeader(stats) {
         const plan = stats.plan?.name || 'Pro';
         const lastUpdate = new Date().toLocaleTimeString();
-        this.widgets.header.setContent(`\n Plan: ${plan}                Last Updated: ${lastUpdate}`);
+        this.widgets.header.setContent(`\n {magenta-fg}◉{/} Plan: {bold}${plan}{/}                Last Updated: {gray-fg}${lastUpdate}{/}`);
     }
     updateCurrentUsage(stats) {
         let content = '\n';
@@ -168,29 +174,29 @@ class TerminalUI {
             const cost = (0, formatters_1.formatCurrency)(session.totalCost);
             const resetIn = stats.timeUntilReset;
             const messages = session.tokenUsage.length;
-            content += ` Active 5-hour session (${duration} elapsed)\n`;
-            content += ` Messages: ${messages}\n`;
-            content += ` Tokens: ${tokensDisplay}\n`;
-            content += ` Usage: ${usagePercent}\n`;
-            content += ` Cost: ${cost}\n`;
-            content += ` Resets in: ${Math.floor(resetIn / 60)}h ${resetIn % 60}m`;
+            content += ` {green-fg}●{/} Active session {gray-fg}(${duration} elapsed){/}\n`;
+            content += ` Messages: {bold}${messages}{/}\n`;
+            content += ` Tokens: {bold}${tokensDisplay}{/}\n`;
+            content += ` Usage: {bold}${usagePercent}{/}\n`;
+            content += ` Cost: {bold}${cost}{/}\n`;
+            content += ` Resets in: {magenta-fg}${Math.floor(resetIn / 60)}h ${resetIn % 60}m{/}`;
             // Show burn rate if meaningful
             if (stats.burnRate > 0) {
-                content += `\n Burn rate: ${stats.burnRate.toFixed(1)} msg/min`;
+                content += `\n Burn rate: {yellow-fg}${stats.burnRate.toFixed(1)} msg/min{/}`;
             }
         }
         else {
-            content += ' No active 5-hour session\n';
-            content += ' Start using Claude Code to begin tracking';
+            content += ' {gray-fg}No active session{/}\n';
+            content += ' {gray-fg}Start using Claude to begin tracking{/}';
         }
         this.widgets.currentUsage.setContent(content);
     }
     updateTodayStats(stats) {
         let content = '\n';
-        content += ` Messages today: ${stats.todayPrompts}\n`;
-        content += ` Cost today: ${(0, formatters_1.formatCurrency)(stats.dailyCost)}\n`;
-        content += ` Sessions: ${stats.sessionsToday}\n`;
-        content += ` Plan: ${stats.plan.name}\n`;
+        content += ` Messages today: {bold}${stats.todayPrompts}{/}\n`;
+        content += ` Cost today: {bold}${(0, formatters_1.formatCurrency)(stats.dailyCost)}{/}\n`;
+        content += ` Sessions: {bold}${stats.sessionsToday}{/}\n`;
+        content += ` Plan: {magenta-fg}${stats.plan.name}{/}\n`;
         if (stats.plan.name === 'Free') {
             content += '\n {yellow-fg}Limited Claude Code access{/}\n';
             content += ' Consider upgrading for more usage';

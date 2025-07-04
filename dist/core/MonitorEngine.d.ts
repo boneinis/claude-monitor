@@ -5,6 +5,7 @@ export declare class MonitorEngine {
     private plan;
     private alerts;
     private updateCallbacks;
+    private cache;
     constructor(dataLoader: DataLoader, plan?: Plan);
     getProjects(): Promise<string[]>;
     getCurrentStats(projectName?: string): Promise<{
@@ -27,6 +28,7 @@ export declare class MonitorEngine {
     private calculateTimeRemaining;
     private checkAlerts;
     private calculateTimeUntilReset;
+    private countSessionsTodayAsync;
     private countSessionsToday;
     private calculateEfficiency;
     onUpdate(callback: () => void): void;

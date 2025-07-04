@@ -3,14 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MonitorEngine = void 0;
 const constants_1 = require("./constants");
 const formatters_1 = require("../utils/formatters");
+const Cache_1 = require("./Cache");
 class MonitorEngine {
     dataLoader;
     plan;
     alerts = [];
     updateCallbacks = [];
+    cache = new Cache_1.SimpleCache();
     constructor(dataLoader, plan = constants_1.PLANS.Pro) {
         this.dataLoader = dataLoader;
         this.plan = plan;
+        // Periodically clean up expired cache entries
+        setInterval(() => this.cache.cleanup(), 60000); // Every minute
     }
     async getProjects() {
         return this.dataLoader.getProjects();
@@ -42,6 +46,10 @@ class MonitorEngine {
         };
     }
     async getDailyStats(days = 7, projectName) {
+        const cacheKey = `daily_${days}_${projectName || 'all'}`;
+        const cached = this.cache.get(cacheKey);
+        if (cached)
+            return cached;
         const allUsage = await this.dataLoader.loadRecentData(days * 24, projectName);
         const statsByDay = new Map();
         for (const usage of allUsage) {
@@ -96,11 +104,15 @@ class MonitorEngine {
         statsByDay.forEach(stats => {
             stats.cacheSavings = stats.noCacheCost - stats.totalCost;
         });
-        return Array.from(statsByDay.values()).sort((a, b) => a.date.localeCompare(b.date));
+        const result = Array.from(statsByDay.values()).sort((a, b) => a.date.localeCompare(b.date));
+        // Cache for 30 seconds
+        this.cache.set(cacheKey, result, 30000);
+        return result;
     }
     async getWeeklyStats(weeks = 4, projectName) {
-        // Load all data to ensure we have enough history
-        const allUsage = await this.dataLoader.loadAllData(projectName);
+        // Only load data for the requested weeks to avoid memory issues
+        const weeksInHours = weeks * 7 * 24;
+        const allUsage = await this.dataLoader.loadRecentData(weeksInHours, projectName);
         const weeklyStats = [];
         // Group usage by week (Sunday to Saturday)
         const usageByWeek = new Map();
@@ -178,8 +190,9 @@ class MonitorEngine {
         return weeklyStats.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
     }
     async getMonthlyStats(months = 3, projectName) {
-        // Load all data to ensure we have enough history
-        const allUsage = await this.dataLoader.loadAllData(projectName);
+        // Only load data for the requested months to avoid memory issues
+        const monthsInHours = months * 30 * 24;
+        const allUsage = await this.dataLoader.loadRecentData(monthsInHours, projectName);
         const monthlyStats = [];
         // Group usage by month
         const usageByMonth = new Map();
@@ -316,29 +329,35 @@ class MonitorEngine {
         }
     }
     calculateTimeUntilReset(session) {
-        if (!session) {
+        if (!session || !session.endTime) {
             return 0;
         }
-        const sessionEnd = new Date(session.startTime.getTime() + 5 * 60 * 60 * 1000); // 5 hours from start
+        const sessionEnd = session.endTime;
         const now = new Date();
         return Math.max(0, Math.round((sessionEnd.getTime() - now.getTime()) / 1000 / 60)); // minutes
     }
-    countSessionsToday() {
-        const now = new Date();
-        const todayStart = new Date(now);
-        todayStart.setUTCHours(0, 0, 0, 0);
-        // Fixed 5-hour reset windows: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
-        const resetHours = [0, 5, 10, 15, 20];
-        let count = 0;
-        for (const hour of resetHours) {
-            const resetTime = new Date(todayStart);
-            resetTime.setUTCHours(hour, 0, 0, 0);
-            // Count if this reset has already happened today
-            if (resetTime <= now) {
-                count++;
-            }
+    async countSessionsTodayAsync() {
+        // Sessions are created on-demand when activity starts, not on a fixed schedule
+        // So we need to count actual sessions from today's data
+        const todayUsage = await this.dataLoader.loadTodayData();
+        if (todayUsage.length === 0)
+            return 0;
+        // Group usage by session (5-hour windows starting at hour of first activity)
+        const sessions = new Set();
+        for (const u of todayUsage) {
+            const usageTime = new Date(u.timestamp);
+            const sessionStart = new Date(usageTime);
+            sessionStart.setMinutes(0, 0, 0);
+            sessions.add(sessionStart.toISOString());
         }
-        return count;
+        return sessions.size;
+    }
+    countSessionsToday() {
+        // For synchronous use, return estimate based on hours passed
+        // Maximum possible is 5 sessions per day (24/5 = 4.8)
+        const now = new Date();
+        const hoursPassed = now.getHours() + (now.getMinutes() / 60);
+        return Math.min(Math.ceil(hoursPassed / 5), 5);
     }
     calculateEfficiency(usage) {
         if (usage.length === 0)
