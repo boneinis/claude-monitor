@@ -6,27 +6,89 @@ import { MonitorEngine } from './core/MonitorEngine';
 import { TerminalUI } from './tui/TerminalUI';
 import { WebServer } from './web/WebServer';
 import { PLANS } from './core/constants';
+import { UpdateChecker } from './utils/updateChecker';
 import * as path from 'path';
 import * as os from 'os';
+import * as readline from 'readline';
 
 const program = new Command();
 
+async function selectPlanInteractively(): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const plans = [
+    { key: 'Pro', name: 'Pro Plan', tokens: '~4.5M tokens', messages: '45 msgs/5hr', cost: '$20/month' },
+    { key: 'Max5', name: 'Max5 Plan', tokens: '~22.5M tokens', messages: '225 msgs/5hr', cost: '$100/month' },
+    { key: 'Max20', name: 'Max20 Plan', tokens: '~90M tokens', messages: '900 msgs/5hr', cost: '$200/month' },
+    { key: 'Team', name: 'Team Plan', tokens: '~4.5M tokens', messages: '45 msgs/5hr', cost: '$25/user/month' }
+  ];
+
+  console.log('\n🤖 Claude Plan Selection');
+  console.log('=' .repeat(60));
+  console.log();
+
+  plans.forEach((plan, index) => {
+    console.log(`${index + 1}. ${plan.name}`);
+    console.log(`   Messages: ${plan.messages}`);
+    console.log(`   Tokens: ${plan.tokens}`);
+    console.log(`   Cost: ${plan.cost}`);
+    console.log();
+  });
+
+  return new Promise((resolve) => {
+    const askQuestion = () => {
+      rl.question('Select your plan (1-4): ', (answer) => {
+        const choice = parseInt(answer.trim());
+        if (choice >= 1 && choice <= 4) {
+          const selectedPlan = plans[choice - 1];
+          console.log(`Selected: ${selectedPlan.name} (${selectedPlan.tokens})`);
+          console.log();
+          rl.close();
+          resolve(selectedPlan.key);
+        } else {
+          console.log('Invalid choice. Please enter 1, 2, 3, or 4.');
+          askQuestion();
+        }
+      });
+    };
+    askQuestion();
+  });
+}
+
 program
   .name('claude-monitor')
-  .description('Terminal-based Claude Code usage monitor')
+  .description('Terminal-based Claude Code usage monitor with interactive plan selection')
   .version('1.0.0')
   .option('-p, --path <path>', 'Path to Claude projects directory', path.join(os.homedir(), '.claude', 'projects'))
-  .option('--plan <plan>', 'Subscription plan (Free, Pro, Max5, Max20)', 'Max20')
+  .option('--plan <plan>', 'Subscription plan (Pro, Max5, Max20, Team). If not specified, you will be prompted to choose.')
   .option('-r, --refresh <ms>', 'Refresh interval in milliseconds', '3000')
   .option('--live', 'Show live monitor only')
   .option('--daily', 'Show daily report and exit')
   .option('--web', 'Launch web dashboard')
   .option('--web-only', 'Run web server without TUI')
   .option('--port <port>', 'Web server port', '3000')
+  .option('--no-update-check', 'Skip checking for updates')
   .action(async (options) => {
     try {
+      // Check for updates in the background (non-blocking)
+      if (!options.noUpdateCheck) {
+        UpdateChecker.checkForUpdates().catch(() => {
+          // Silently ignore update check failures
+        });
+      }
+
       const dataLoader = new DataLoader(options.path);
-      const plan = PLANS[options.plan as keyof typeof PLANS] || PLANS.Max20;
+      
+      // Interactive plan selection if not specified
+      let planKey = options.plan;
+      if (!planKey) {
+        planKey = await selectPlanInteractively();
+      }
+      
+      const plan = PLANS[planKey as keyof typeof PLANS] || PLANS.Max20;
       const monitor = new MonitorEngine(dataLoader, plan);
 
       if (options.daily) {

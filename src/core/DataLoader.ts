@@ -90,8 +90,8 @@ export class DataLoader {
       return [];
     }
 
-    // Fixed 5-hour reset windows in UTC: 00:00, 05:00, 10:00, 15:00, 20:00
-    const resetHours = [0, 5, 10, 15, 20];
+    // Reset windows based on user observations: UTC 0, 3, 9, 14, 19 (8pm, 11pm, 5am, 10am, 3pm EDT)
+    const resetHours = [0, 3, 9, 14, 19];
     
     // Get the last reset time before now
     const currentHour = now.getUTCHours();
@@ -111,9 +111,17 @@ export class DataLoader {
       lastResetTime.setUTCDate(lastResetTime.getUTCDate() - 1);
     }
     
-    // Get previous reset time (5 hours before)
+    // Get previous reset time (find the previous reset hour)
     const previousResetTime = new Date(lastResetTime);
-    previousResetTime.setUTCHours(previousResetTime.getUTCHours() - 5);
+    const lastResetIndex = resetHours.indexOf(lastResetHour);
+    const previousResetIndex = lastResetIndex > 0 ? lastResetIndex - 1 : resetHours.length - 1;
+    const previousResetHour = resetHours[previousResetIndex];
+    
+    previousResetTime.setUTCHours(previousResetHour, 0, 0, 0);
+    if (previousResetHour > lastResetHour) {
+      // Previous reset was yesterday
+      previousResetTime.setUTCDate(previousResetTime.getUTCDate() - 1);
+    }
     
     // Get next reset time
     let nextResetHour = resetHours.find(h => h > currentHour);
@@ -198,7 +206,7 @@ export class DataLoader {
       try {
         const data = JSON.parse(line);
         
-        // Look for assistant messages with usage data (ccusage approach)
+        // Look for assistant messages with usage data
         if (data.message?.usage && data.timestamp) {
           const usageData = data.message.usage;
           const model = data.message.model || 'unknown';

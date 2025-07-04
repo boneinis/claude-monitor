@@ -7,7 +7,7 @@ cd "/Users/irvinbowman/Claude usage/claude-monitor"
 lsof -ti:3000 | xargs kill -9 2>/dev/null
 
 # Start the monitor
-npm start -- --web-only &
+node dist/index.js --web-only --plan Max20 &
 SERVER_PID=$!
 
 # Wait for server to start

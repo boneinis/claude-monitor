@@ -56,6 +56,7 @@ class TerminalUI {
     createWidgets() {
         const header = this.grid.set(0, 0, 2, 12, blessed.box, {
             label: 'Claude Usage Monitor',
+            content: '\n Note: Anthropic may allow usage overages beyond base limits',
             border: { type: 'line' },
             style: {
                 border: { fg: 'blue' },
@@ -160,13 +161,17 @@ class TerminalUI {
         if (stats.currentSession) {
             const session = stats.currentSession;
             const duration = this.formatDuration(Date.now() - session.startTime.getTime());
-            const totalTokens = (0, formatters_1.formatNumber)(session.totalTokens);
+            const totalTokens = session.totalTokens;
+            const sessionLimit = stats.plan.estimatedTokensPerSession;
+            const tokensDisplay = (0, formatters_1.formatTokensWithBonus)(totalTokens, sessionLimit);
+            const usagePercent = (0, formatters_1.formatUsagePercentage)(totalTokens, sessionLimit);
             const cost = (0, formatters_1.formatCurrency)(session.totalCost);
             const resetIn = stats.timeUntilReset;
             const messages = session.tokenUsage.length;
             content += ` Active 5-hour session (${duration} elapsed)\n`;
             content += ` Messages: ${messages}\n`;
-            content += ` Tokens: ${totalTokens}\n`;
+            content += ` Tokens: ${tokensDisplay}\n`;
+            content += ` Usage: ${usagePercent}\n`;
             content += ` Cost: ${cost}\n`;
             content += ` Resets in: ${Math.floor(resetIn / 60)}h ${resetIn % 60}m`;
             // Show burn rate if meaningful

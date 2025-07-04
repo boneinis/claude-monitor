@@ -20,45 +20,45 @@
 
         .header {
             background: linear-gradient(135deg, #1e40af, #3b82f6);
-            padding: 1.5rem 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .header h1 {
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
 
         .header .subtitle {
             opacity: 0.9;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         .dashboard {
-            padding: 2rem;
+            padding: 1rem;
             max-width: 1400px;
             margin: 0 auto;
         }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .card {
             background: #1e293b;
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: 8px;
+            padding: 1rem;
             border: 1px solid #334155;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .card h3 {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
             color: #60a5fa;
             display: flex;
             align-items: center;
@@ -68,9 +68,9 @@
         .stat {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 0.75rem;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #334155;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #374151;
         }
 
         .stat:last-child {
@@ -80,11 +80,18 @@
 
         .stat-label {
             color: #94a3b8;
+            font-size: 0.9rem;
         }
 
         .stat-value {
             font-weight: 600;
             color: #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .bonus-highlight {
+            color: #a855f7 !important;
+            font-weight: bold !important;
         }
 
         .progress-bar {
@@ -210,11 +217,24 @@
 
         @media (max-width: 768px) {
             .dashboard {
-                padding: 1rem;
+                padding: 0.5rem;
             }
             
             .grid {
                 grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .card {
+                padding: 0.75rem;
+            }
+            
+            .header {
+                padding: 0.75rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
             }
         }
     </style>
@@ -273,23 +293,23 @@
                         Current Period
                     </h3>
                     <div class="stat">
-                        <span class="stat-label">Messages</span>
+                        <span class="stat-label">Messages This Period</span>
                         <span class="stat-value" id="sessionMessages">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Tokens</span>
+                        <span class="stat-label">Tokens This Period</span>
                         <span class="stat-value" id="sessionTokens">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Total Cost</span>
+                        <span class="stat-label">Period Cost</span>
                         <span class="stat-value" id="sessionCost">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Usage Limit Resets</span>
+                        <span class="stat-label">Period Resets In</span>
                         <span class="stat-value" id="sessionReset">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Messages Remaining</span>
+                        <span class="stat-label">Message Usage</span>
                         <span class="stat-value" id="messagesRemaining">--</span>
                     </div>
                     <div class="stat">
@@ -297,11 +317,11 @@
                         <span class="stat-value" id="usageRate">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Token Limit</span>
+                        <span class="stat-label">Token Usage %</span>
                         <span class="stat-value" id="tokenLimit">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Token Depletion</span>
+                        <span class="stat-label">Token Status</span>
                         <span class="stat-value" id="tokenDepletion">--</span>
                     </div>
                     <div id="sessionWarnings" style="margin-top: 1rem;"></div>
@@ -309,21 +329,21 @@
 
                 <!-- Today's Usage Card -->
                 <div class="card">
-                    <h3>📊 Today's Usage</h3>
+                    <h3>📊 Today's Summary</h3>
                     <div class="stat">
-                        <span class="stat-label">Messages</span>
+                        <span class="stat-label">Total Messages Today</span>
                         <span class="stat-value" id="todayMessages">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Tokens</span>
+                        <span class="stat-label">Total Tokens Today</span>
                         <span class="stat-value" id="todayTokens">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Total Cost</span>
+                        <span class="stat-label">Daily Cost</span>
                         <span class="stat-value" id="todayCost">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Reset Periods</span>
+                        <span class="stat-label">5-Hour Periods Today</span>
                         <span class="stat-value" id="todaySessions">--</span>
                     </div>
                     <div class="stat">
@@ -331,7 +351,7 @@
                         <span class="stat-value" id="plan">--</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Usage Reset</span>
+                        <span class="stat-label">Next Period Reset</span>
                         <span class="stat-value" id="dailyReset">--</span>
                     </div>
                     <div class="stat">
@@ -480,6 +500,31 @@
             return new Intl.NumberFormat('en-US').format(num);
         }
 
+        function formatTokensWithBonus(used, limit) {
+            if (used > limit) {
+                const bonus = used - limit;
+                return `${formatNumber(limit)} + <span style="color: #a855f7; font-weight: bold;">${formatNumber(bonus)} bonus</span>`;
+            }
+            return `${formatNumber(used)} / ${formatNumber(limit)}`;
+        }
+
+        function formatUsagePercentage(used, limit) {
+            const percentage = (used / limit) * 100;
+            if (percentage > 100) {
+                const bonusPercentage = percentage - 100;
+                return `${percentage.toFixed(1)}% (<span style="color: #a855f7; font-weight: bold;">+${bonusPercentage.toFixed(1)}% bonus</span>)`;
+            }
+            return `${percentage.toFixed(1)}%`;
+        }
+
+        function formatMessagesWithBonus(used, limit) {
+            if (used > limit) {
+                const bonus = used - limit;
+                return `${formatNumber(limit)} + <span style="color: #a855f7; font-weight: bold;">${formatNumber(bonus)} bonus</span>`;
+            }
+            return `${formatNumber(used)} / ${formatNumber(limit)}`;
+        }
+
         function formatDuration(ms) {
             const hours = Math.floor(ms / (1000 * 60 * 60));
             const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
@@ -520,17 +565,26 @@
                 totalCacheWriteTokens += usage.cacheCreateTokens || 0;
             });
             
-            // Format session times
+            // Format session times from actual data
             const sessionStart = new Date(session.startTime);
-            const sessionEnd = new Date(session.endTime);
+            const sessionEnd = session.endTime ? new Date(session.endTime) : null;
             const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
             const dateOptions = { month: 'short', day: 'numeric' };
             
-            // Show both date and time for clarity
+            // Show actual session start time
             document.getElementById('sessionStartTime').textContent = 
                 `${sessionStart.toLocaleDateString('en-US', dateOptions)} ${sessionStart.toLocaleTimeString('en-US', timeOptions)}`;
-            document.getElementById('sessionEndTime').textContent = 
-                `${sessionEnd.toLocaleDateString('en-US', dateOptions)} ${sessionEnd.toLocaleTimeString('en-US', timeOptions)}`;
+            
+            // Show actual end time or calculate based on current session
+            if (sessionEnd) {
+                document.getElementById('sessionEndTime').textContent = 
+                    `${sessionEnd.toLocaleDateString('en-US', dateOptions)} ${sessionEnd.toLocaleTimeString('en-US', timeOptions)}`;
+            } else {
+                // For active session, show when it will end based on timeUntilReset
+                const estimatedEnd = new Date(Date.now() + (stats.timeUntilReset * 60 * 1000));
+                document.getElementById('sessionEndTime').textContent = 
+                    `${estimatedEnd.toLocaleDateString('en-US', dateOptions)} ${estimatedEnd.toLocaleTimeString('en-US', timeOptions)} (est)`; 
+            }
             document.getElementById('sessionInputTokens').textContent = 
                 formatNumber(totalInputTokens) + ` ($${(totalInputTokens / 1000000 * 15).toFixed(2)})`;
             document.getElementById('sessionOutputTokens').textContent = 
@@ -692,7 +746,9 @@
                 const now = new Date();
                 
                 document.getElementById('sessionMessages').textContent = formatNumber(stats.currentSession.tokenUsage.length);
-                document.getElementById('sessionTokens').textContent = formatNumber(stats.currentSession.totalTokens);
+                const currentTokens = stats.currentSession.totalTokens;
+                const estimatedTokenLimit = stats.plan.estimatedTokensPerSession || 90000000;
+                document.getElementById('sessionTokens').innerHTML = formatTokensWithBonus(currentTokens, estimatedTokenLimit);
                 document.getElementById('sessionCost').textContent = formatCurrency(stats.currentSession.totalCost);
                 
                 // Calculate no-cache cost
@@ -719,26 +775,9 @@
                 document.getElementById('sessionCacheSavings').textContent = 
                     `${formatCurrency(cacheSavings)} (${savingsPercent.toFixed(1)}%)`;
                 
-                // Calculate fixed 5-hour usage limit reset
-                const resetHours = [0, 5, 10, 15, 20];
-                const currentHour = now.getUTCHours();
-                
-                let nextResetHour = resetHours.find(hour => hour > currentHour);
-                if (!nextResetHour && nextResetHour !== 0) {
-                    nextResetHour = 24; // Next day at 00:00
-                }
-                
-                const nextReset = new Date(now);
-                if (nextResetHour === 24) {
-                    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-                    nextReset.setUTCHours(0, 0, 0, 0);
-                } else {
-                    nextReset.setUTCHours(nextResetHour, 0, 0, 0);
-                }
-                
-                const msUntilReset = nextReset - now;
-                const hoursUntilReset = Math.floor(msUntilReset / (1000 * 60 * 60));
-                const minsUntilReset = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+                // Use timeUntilReset from backend which already has the correct calculation
+                const hoursUntilReset = Math.floor(stats.timeUntilReset / 60);
+                const minsUntilReset = stats.timeUntilReset % 60;
                 
                 document.getElementById('sessionReset').textContent = `${hoursUntilReset}h ${minsUntilReset}m`;
                 
@@ -765,27 +804,33 @@
                 const projectedMessagesAtReset = messagesUsed + (messagesPerMinute * minutesUntilReset);
                 const willHitLimit = projectedMessagesAtReset > messagesLimit;
                 
-                document.getElementById('messagesRemaining').textContent = 
-                    `${messagesRemaining} / ${messagesLimit}`;
+                // Show messages with bonus formatting
+                document.getElementById('messagesRemaining').innerHTML = formatMessagesWithBonus(messagesUsed, messagesLimit);
                 document.getElementById('usageRate').textContent = messagesPerHour;
                 
-                // Color code based on remaining capacity
-                const remainingPercent = (messagesRemaining / messagesLimit) * 100;
+                // Color code based on usage status
                 const remainingEl = document.getElementById('messagesRemaining');
-                if (remainingPercent < 10) {
-                    remainingEl.style.color = '#ef4444'; // Red
-                } else if (remainingPercent < 25) {
-                    remainingEl.style.color = '#f59e0b'; // Orange
+                if (messagesUsed > messagesLimit) {
+                    // Bonus usage - show in purple
+                    remainingEl.style.color = '#a855f7'; // Purple - bonus messages available!
+                    remainingEl.style.fontWeight = 'bold';
                 } else {
-                    remainingEl.style.color = '#10b981'; // Green
+                    const remainingPercent = (messagesRemaining / messagesLimit) * 100;
+                    if (remainingPercent < 10) {
+                        remainingEl.style.color = '#f59e0b'; // Orange - approaching limit
+                    } else if (remainingPercent < 25) {
+                        remainingEl.style.color = '#fbbf24'; // Yellow
+                    } else {
+                        remainingEl.style.color = '#10b981'; // Green
+                    }
+                    remainingEl.style.fontWeight = 'normal';
                 }
                 
                 // Just show the usage rate without the warning (warning is shown in the warnings section)
                 document.getElementById('usageRate').textContent = messagesPerHour;
                 
                 // Calculate token estimates
-                const estimatedTokenLimit = stats.plan.estimatedTokensPerSession || 90000000;
-                const currentTokens = stats.currentSession.totalTokens;
+                // estimatedTokenLimit already declared above
                 // Handle case where actual usage exceeds estimate
                 const tokenPercent = Math.min((currentTokens / estimatedTokenLimit) * 100, 999);
                 
@@ -808,33 +853,28 @@
                 }
                 
                 // Display token limit info
-                let tokenLimitText;
-                if (currentTokens > estimatedTokenLimit) {
-                    // Exceeded estimate
-                    const excessPercent = ((currentTokens - estimatedTokenLimit) / estimatedTokenLimit * 100).toFixed(0);
-                    tokenLimitText = `${formatNumber(currentTokens)} / ${formatNumber(estimatedTokenLimit)} (+${excessPercent}%)`;
-                } else {
-                    tokenLimitText = `${formatNumber(currentTokens)} / ${formatNumber(estimatedTokenLimit)} (${tokenPercent.toFixed(1)}%)`;
-                }
-                document.getElementById('tokenLimit').textContent = tokenLimitText;
+                const tokenLimitText = formatUsagePercentage(currentTokens, estimatedTokenLimit);
+                document.getElementById('tokenLimit').innerHTML = tokenLimitText;
                 
                 // Color code token usage
                 const tokenLimitEl = document.getElementById('tokenLimit');
                 if (currentTokens > estimatedTokenLimit) {
-                    tokenLimitEl.style.color = '#ef4444'; // Red - exceeded estimate
+                    // Bonus usage - show in purple
+                    tokenLimitEl.style.color = '#a855f7'; // Purple - bonus usage available!
+                    tokenLimitEl.style.fontWeight = 'bold';
                 } else if (tokenPercent >= 90) {
-                    tokenLimitEl.style.color = '#ef4444'; // Red
+                    tokenLimitEl.style.color = '#f59e0b'; // Orange - approaching limit
                 } else if (tokenPercent >= 70) {
-                    tokenLimitEl.style.color = '#f59e0b'; // Orange
+                    tokenLimitEl.style.color = '#fbbf24'; // Yellow
                 } else {
                     tokenLimitEl.style.color = '#10b981'; // Green
                 }
                 
                 // Display token depletion estimate
                 if (minutesUntilTokensDeplete === -1) {
-                    // Already exceeded estimate
+                    // Already exceeded estimate - show as bonus usage
                     document.getElementById('tokenDepletion').innerHTML = 
-                        '<span style="color: #ef4444;">⚠️ Estimate exceeded</span>';
+                        '<span style="color: #a855f7; font-weight: bold;">🎉 Bonus usage active</span>';
                 } else if (sessionDurationMinutes < 1) {
                     // Not enough data
                     document.getElementById('tokenDepletion').textContent = 'Calculating...';
@@ -890,26 +930,35 @@
                 }
                 
                 // Message limit warnings
-                if (remainingPercent < 10) {
+                const remainingPercent = messagesLimit > 0 ? (messagesRemaining / messagesLimit) * 100 : 0;
+                
+                if (messagesUsed > messagesLimit) {
+                    // In bonus usage - show positive message
+                    const bonusMessages = messagesUsed - messagesLimit;
                     warnings.push({
-                        type: 'critical',
+                        type: 'info',
+                        message: `🎉 Bonus usage: ${bonusMessages} messages beyond base limit`
+                    });
+                } else if (remainingPercent < 10) {
+                    warnings.push({
+                        type: 'warning',
                         message: `Only ${messagesRemaining} messages remaining (${remainingPercent.toFixed(0)}%)`
                     });
                 } else if (remainingPercent < 25) {
                     warnings.push({
-                        type: 'warning',
+                        type: 'info',
                         message: `${messagesRemaining} messages remaining (${remainingPercent.toFixed(0)}%)`
                     });
                 }
                 
-                // Rate limit warnings
-                if (willHitLimit && messagesRemaining > 0 && sessionDurationMinutes >= 1) {
+                // Rate limit warnings - only show if not already in bonus usage
+                if (willHitLimit && messagesRemaining > 0 && sessionDurationMinutes >= 1 && messagesUsed <= messagesLimit) {
                     const minutesUntilLimit = messagesRemaining / messagesPerMinute;
                     const hoursUntilLimit = Math.floor(minutesUntilLimit / 60);
                     const minsUntilLimit = Math.floor(minutesUntilLimit % 60);
                     warnings.push({
-                        type: 'warning',
-                        message: `At current rate, message limit will be reached in ${hoursUntilLimit}h ${minsUntilLimit}m`
+                        type: 'info',
+                        message: `At current rate, base limit reached in ${hoursUntilLimit}h ${minsUntilLimit}m (bonus usage available)`
                     });
                 }
                 
@@ -928,7 +977,8 @@
                         gap: 0.5rem;
                         white-space: nowrap;
                     `;
-                    alertDiv.innerHTML = `⚠️ ${warning.message}`;
+                    const icon = warning.type === 'info' && warning.message.includes('🎉') ? '' : '⚠️ ';
+                    alertDiv.innerHTML = `${icon}${warning.message}`;
                     headerWarningsContainer.appendChild(alertDiv);
                 });
             } else {
@@ -958,26 +1008,9 @@
                 // Still show plan reset times even without active session
                 const now = new Date();
                 
-                // Fixed 5-hour windows: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
-                const resetHours = [0, 5, 10, 15, 20];
-                const currentHour = now.getUTCHours();
-                
-                let nextResetHour = resetHours.find(hour => hour > currentHour);
-                if (!nextResetHour) {
-                    nextResetHour = 24; // Next day at 00:00
-                }
-                
-                const nextReset = new Date(now);
-                if (nextResetHour === 24) {
-                    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-                    nextReset.setUTCHours(0, 0, 0, 0);
-                } else {
-                    nextReset.setUTCHours(nextResetHour, 0, 0, 0);
-                }
-                
-                const msUntilReset = nextReset - now;
-                const hoursUntilReset = Math.floor(msUntilReset / (1000 * 60 * 60));
-                const minsUntilReset = Math.floor((msUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+                // When no active session, we don't have reset info from backend
+                // Just show placeholder or hide these fields
+                document.getElementById('dailyReset').innerHTML = `No active session`;
                 
                 const nextMonthReset = new Date(now);
                 nextMonthReset.setUTCMonth(nextMonthReset.getUTCMonth() + 1);
@@ -985,13 +1018,12 @@
                 nextMonthReset.setUTCHours(0, 0, 0, 0);
                 const daysUntilMonthReset = Math.floor((nextMonthReset - now) / (1000 * 60 * 60 * 24));
                 
-                document.getElementById('dailyReset').innerHTML = `5-Hour Reset<br><span style="font-size: 0.9em;">${hoursUntilReset}h ${minsUntilReset}m</span>`;
                 document.getElementById('monthlyReset').textContent = `${daysUntilMonthReset} days`;
             }
 
-            // Today's Usage
-            document.getElementById('todayMessages').textContent = formatNumber(stats.todayPrompts);
-            document.getElementById('todayTokens').textContent = formatNumber(stats.todayTokens);
+            // Today's Usage - show daily totals with context
+            document.getElementById('todayMessages').innerHTML = `${formatNumber(stats.todayPrompts)} <span style="color: #94a3b8; font-size: 0.8em;">(all periods)</span>`;
+            document.getElementById('todayTokens').innerHTML = `${formatNumber(stats.todayTokens)} <span style="color: #94a3b8; font-size: 0.8em;">(all periods)</span>`;
             document.getElementById('todayCost').textContent = formatCurrency(stats.dailyCost);
             document.getElementById('todaySessions').textContent = stats.sessionsToday;
             document.getElementById('plan').textContent = stats.plan.name;
@@ -1038,7 +1070,14 @@
             nextMonthReset.setUTCHours(0, 0, 0, 0);
             const daysUntilMonthReset = Math.floor((nextMonthReset - now) / (1000 * 60 * 60 * 24));
             
-            document.getElementById('dailyReset').innerHTML = `5-Hour Reset<br><span style="font-size: 0.9em;">${hoursUntilReset}h ${minsUntilReset}m</span>`;
+            // Show next reset time based on backend data
+            if (stats.timeUntilReset) {
+                const hoursLeft = Math.floor(stats.timeUntilReset / 60);
+                const minsLeft = stats.timeUntilReset % 60;
+                document.getElementById('dailyReset').innerHTML = `Next Reset<br><span style="font-size: 0.9em;">${hoursLeft}h ${minsLeft}m</span>`;
+            } else {
+                document.getElementById('dailyReset').innerHTML = `No active session`;
+            }
             document.getElementById('monthlyReset').textContent = `${daysUntilMonthReset} days`;
 
             // Show refresh indicator

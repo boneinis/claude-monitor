@@ -24,7 +24,7 @@ lsof -ti:3000 | xargs kill -9 2>/dev/null
 # Start the web server
 echo "Starting Claude Monitor..."
 echo "Opening http://localhost:3000 in your browser..."
-npm start -- --web-only &
+node dist/index.js --web-only --plan Max20 &
 
 # Wait a moment for the server to start
 sleep 2
