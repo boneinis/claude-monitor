@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Monitor Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='70' font-size='120' text-anchor='middle' fill='%237c3aed' font-weight='bold'>*</text></svg>">
     <style>
         * {
             margin: 0;
@@ -1114,7 +1115,7 @@
                     const minsUntilLimit = Math.floor(minutesUntilLimit % 60);
                     warnings.push({
                         type: 'info',
-                        message: `At current rate, base limit reached in ${hoursUntilLimit}h ${minsUntilLimit}m (bonus usage available)`
+                        message: `At current rate, base limit reached in ${hoursUntilLimit}h ${minsUntilLimit}m (bonus usage may be available)`
                     });
                 }
                 
