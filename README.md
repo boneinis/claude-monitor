@@ -53,6 +53,8 @@ claude-monitor --plan Max20
 - 🌐 **Web dashboard** for browser-based monitoring
 - ⚡ **Accurate session detection** with proper 5-hour window tracking
 - 💾 **Cache cost analysis** showing savings from token caching
+- 🔄 **Update checking** with automatic startup checks and manual 'u' key
+- 🖥️ **Desktop shortcuts** with native macOS app and auto-setup launchers
 
 ## Detailed Usage
 
@@ -75,12 +77,55 @@ npm start -- --web-only         # Web dashboard only
 npm start -- --help             # See all available options
 ```
 
+## Desktop Shortcuts
+
+For easier access, several desktop launchers are available in the `launch-scripts/` directory:
+
+### 🖥️ **macOS App Bundle**
+```bash
+# Double-click to launch:
+launch-scripts/Claude Monitor.app
+```
+- Native macOS application experience
+- Custom app icon and proper bundle structure
+- Appears in Applications folder and Dock
+- Launches web interface automatically
+
+### ⚡ **Auto-Setup Launcher**
+```bash
+# Double-click to launch:
+launch-scripts/Claude Monitor.command
+```
+- Automatically installs dependencies if needed
+- Builds project if necessary
+- Kills existing instances to prevent conflicts
+- Opens browser automatically
+- **Recommended for first-time users**
+
+### 🚀 **Quick Launcher**
+```bash
+# Run from terminal:
+./launch-scripts/launch-claude-monitor.sh
+```
+- Lightweight script for daily use
+- Assumes project is already built
+- Opens web interface at localhost:3000
+
+### 📋 **Setup Instructions**
+1. **First time**: Use `Claude Monitor.command` (handles all setup)
+2. **Regular use**: Use `Claude Monitor.app` (native macOS experience)  
+3. **Advanced users**: Use shell scripts or npm commands
+
 ## Keyboard Shortcuts
 
+**TUI (Terminal Interface):**
 - `Tab` - Switch between panels
 - `↑/↓` - Navigate within panels
 - `Enter` - Show details
 - `r` - Refresh data
+- `s` - Switch plan (Pro/Max5/Max20/Team)
+- `u` - Check for updates
+- `p` - Show projects
 - `?/h` - Show help
 - `q` - Quit
 
