@@ -56,8 +56,7 @@ class TerminalUI {
     createWidgets() {
         const header = this.grid.set(0, 0, 2, 12, blessed.box, {
             label: ' Claude Monitor ',
-            content: '\n {magenta-fg}◉{/} Real-time usage tracking for Claude',
-            tags: true,
+            content: '\n ◉ Real-time usage tracking for Claude',
             border: { type: 'line' },
             style: {
                 border: { fg: 'magenta' },
@@ -98,8 +97,7 @@ class TerminalUI {
             }
         });
         const footer = this.grid.set(10, 0, 2, 12, blessed.box, {
-            content: ' {magenta-fg}[r]{/} Refresh  {magenta-fg}[q]{/} Quit  {magenta-fg}[?]{/} Help  {magenta-fg}[p]{/} Projects',
-            tags: true,
+            content: ' [r] Refresh  [q] Quit  [?] Help  [p] Projects',
             align: 'center',
             style: {
                 fg: 'white'
@@ -160,7 +158,7 @@ class TerminalUI {
     updateHeader(stats) {
         const plan = stats.plan?.name || 'Pro';
         const lastUpdate = new Date().toLocaleTimeString();
-        this.widgets.header.setContent(`\n {magenta-fg}◉{/} Plan: {bold}${plan}{/}                Last Updated: {gray-fg}${lastUpdate}{/}`);
+        this.widgets.header.setContent(`\n ◉ Plan: ${plan}                Last Updated: ${lastUpdate}`);
     }
     updateCurrentUsage(stats) {
         let content = '\n';
@@ -171,34 +169,43 @@ class TerminalUI {
             const sessionLimit = stats.plan.estimatedTokensPerSession;
             const tokensDisplay = (0, formatters_1.formatTokensWithBonus)(totalTokens, sessionLimit);
             const usagePercent = (0, formatters_1.formatUsagePercentage)(totalTokens, sessionLimit);
-            const cost = (0, formatters_1.formatCurrency)(session.totalCost);
+            const cost = `$${session.totalCost.toFixed(2)}`;
             const resetIn = stats.timeUntilReset;
             const messages = session.tokenUsage.length;
-            content += ` {green-fg}●{/} Active session {gray-fg}(${duration} elapsed){/}\n`;
-            content += ` Messages: {bold}${messages}{/}\n`;
-            content += ` Tokens: {bold}${tokensDisplay}{/}\n`;
-            content += ` Usage: {bold}${usagePercent}{/}\n`;
-            content += ` Cost: {bold}${cost}{/}\n`;
-            content += ` Resets in: {magenta-fg}${Math.floor(resetIn / 60)}h ${resetIn % 60}m{/}`;
+            // Create progress bar
+            const progressPercent = Math.min(100, (totalTokens / sessionLimit) * 100);
+            const progressBar = this.createProgressBar(progressPercent, 20);
+            // Time progress (5 hours = 300 minutes)
+            const sessionDuration = 300; // 5 hours in minutes
+            const elapsed = Math.floor((Date.now() - session.startTime.getTime()) / (1000 * 60));
+            const timePercent = Math.min(100, (elapsed / sessionDuration) * 100);
+            const timeBar = this.createProgressBar(timePercent, 20);
+            content += ` ● Active session (${duration} elapsed)\n`;
+            content += ` Messages: ${messages}\n`;
+            content += ` Tokens: ${tokensDisplay}\n`;
+            content += ` Usage: ${progressBar} ${usagePercent}\n`;
+            content += ` Time:  ${timeBar} ${timePercent.toFixed(0)}%\n`;
+            content += ` Cost: ${cost}\n`;
+            content += ` Resets in: ${Math.floor(resetIn / 60)}h ${resetIn % 60}m`;
             // Show burn rate if meaningful
             if (stats.burnRate > 0) {
-                content += `\n Burn rate: {yellow-fg}${stats.burnRate.toFixed(1)} msg/min{/}`;
+                content += `\n Burn rate: ${stats.burnRate.toFixed(1)} msg/min`;
             }
         }
         else {
-            content += ' {gray-fg}No active session{/}\n';
-            content += ' {gray-fg}Start using Claude to begin tracking{/}';
+            content += ' No active session\n';
+            content += ' Start using Claude to begin tracking';
         }
         this.widgets.currentUsage.setContent(content);
     }
     updateTodayStats(stats) {
         let content = '\n';
-        content += ` Messages today: {bold}${stats.todayPrompts}{/}\n`;
-        content += ` Cost today: {bold}${(0, formatters_1.formatCurrency)(stats.dailyCost)}{/}\n`;
-        content += ` Sessions: {bold}${stats.sessionsToday}{/}\n`;
-        content += ` Plan: {magenta-fg}${stats.plan.name}{/}\n`;
+        content += ` Messages today: ${stats.todayPrompts}\n`;
+        content += ` Cost today: $${stats.dailyCost.toFixed(2)}\n`;
+        content += ` Sessions: ${stats.sessionsToday}\n`;
+        content += ` Plan: ${stats.plan.name}\n`;
         if (stats.plan.name === 'Free') {
-            content += '\n {yellow-fg}Limited Claude Code access{/}\n';
+            content += '\n Limited Claude Code access\n';
             content += ' Consider upgrading for more usage';
         }
         else {
@@ -233,12 +240,13 @@ class TerminalUI {
                 });
                 const cost = day.totalCost;
                 const tokens = day.totalTokens;
-                // Scale bar based on highest cost day
-                const barLength = maxCost > 0 ? Math.round((cost / maxCost) * 15) : 0;
+                // Scale bar based on highest cost day, limit to 12 chars for layout
+                const barLength = maxCost > 0 ? Math.round((cost / maxCost) * 12) : 0;
                 const bar = '█'.repeat(Math.max(0, barLength));
-                content += ` ${dayName.padEnd(8)} ${bar.padEnd(15)} $${cost.toFixed(2)}`;
+                content += ` ${dayName.padEnd(8)} ${bar.padEnd(12)} $${cost.toFixed(2)}`;
                 if (tokens > 0) {
-                    content += ` (${(0, formatters_1.formatNumber)(tokens)} tokens)`;
+                    const tokensK = tokens > 1000000 ? `${(tokens / 1000000).toFixed(1)}M` : `${(tokens / 1000).toFixed(0)}k`;
+                    content += ` (${tokensK})`;
                 }
                 content += '\n';
             });
@@ -252,31 +260,32 @@ class TerminalUI {
             const session = stats.currentSession;
             const messages = session.tokenUsage.length;
             const cost = session.totalCost;
-            let status = '{green-fg}Active{/}';
+            let status = 'Active';
             if (cost > 0.10)
-                status = '{yellow-fg}High cost{/}';
+                status = 'High cost';
             if (cost > 0.50)
-                status = '{red-fg}Very high cost{/}';
-            content += ` Session Status: ${status}\n`;
-            content += ` Messages: ${messages} (${(0, formatters_1.formatCurrency)(cost)})\n`;
+                status = 'Very high cost';
+            content += ` Session: ${status}\n`;
+            content += ` Messages: ${messages}\n`;
+            content += ` Cost: $${cost.toFixed(2)}\n`;
         }
         else {
-            content += ' {blue-fg}No active session{/}\n';
+            content += ' No active session\n';
         }
         // Usage warnings based on cost
         if (stats.dailyCost > 5.0) {
-            content += '\n {red-fg}⚠ High daily cost!{/}';
+            content += '\n ⚠ High daily cost!';
         }
         else if (stats.dailyCost > 1.0) {
-            content += '\n {yellow-fg}⚠ Moderate daily cost{/}';
+            content += '\n ⚠ Moderate daily cost';
         }
         // Plan info
         content += `\n\n Plan: ${stats.plan.name}`;
         if (stats.plan.name === 'Free') {
-            content += '\n {yellow-fg}Limited access{/}';
+            content += '\n Limited access';
         }
         else {
-            content += '\n 5-hour billing cycles';
+            content += '\n 5-hour cycles';
         }
         this.widgets.alerts.setContent(content);
     }

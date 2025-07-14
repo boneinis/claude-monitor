@@ -159,73 +159,153 @@ async function showDailyReport(monitor) {
     const dailyStats = await monitor.getDailyStats(7);
     const weeklyStats = await monitor.getWeeklyStats(4);
     const monthlyStats = await monitor.getMonthlyStats(3);
-    console.log('\n📊 Claude Monitor - Usage Report\n');
-    console.log(`Today's Usage:`);
-    console.log(`  Messages: ${stats.todayPrompts}`);
-    console.log(`  Cost: $${stats.dailyCost.toFixed(3)}`);
-    console.log(`  Active sessions: ${stats.sessionsToday}`);
-    // Today's cache breakdown
-    const today = dailyStats.find(d => d.date === new Date().toISOString().split('T')[0]);
-    if (today && today.cacheCost) {
-        const nonCacheCost = today.totalCost - today.cacheCost;
-        console.log(`\nToday's Cost Breakdown:`);
-        console.log(`  Regular tokens: $${nonCacheCost.toFixed(3)} (${today.totalCost > 0 ? ((nonCacheCost / today.totalCost) * 100).toFixed(1) : '0'}%)`);
-        console.log(`  Cache costs: $${today.cacheCost.toFixed(3)} (${today.totalCost > 0 ? ((today.cacheCost / today.totalCost) * 100).toFixed(1) : '0'}%)`);
-        console.log(`  Without cache: $${today.noCacheCost?.toFixed(3) || 'N/A'}`);
-        console.log(`  Savings: $${today.cacheSavings?.toFixed(3) || '0'} (${today.noCacheCost && today.noCacheCost > 0 ? ((today.cacheSavings / today.noCacheCost) * 100).toFixed(1) : '0'}%)`);
+    console.log('\n' + '='.repeat(60));
+    console.log('📊  Claude Monitor - Usage Report');
+    console.log('='.repeat(60) + '\n');
+    // Format today's usage with better alignment
+    console.log('TODAY\'S USAGE');
+    console.log('-'.repeat(30));
+    console.log(`Messages:         ${stats.todayPrompts.toString().padStart(6)}`);
+    console.log(`Cost:            $${stats.dailyCost.toFixed(2).padStart(6)}`);
+    console.log(`Active sessions:  ${stats.sessionsToday.toString().padStart(6)}`);
+    // Calculate cache breakdown from today's actual usage
+    const todayDate = new Date().toISOString().split('T')[0];
+    const todayFromStats = dailyStats.find(d => d.date === todayDate);
+    // Use stats.dailyCost as the source of truth for today's total cost
+    if (stats.dailyCost > 0) {
+        console.log('\nCOST BREAKDOWN');
+        console.log('-'.repeat(30));
+        console.log(`Actual cost:     $${stats.dailyCost.toFixed(2).padStart(6)} (with cache)`);
+        // If we have detailed cache breakdown from dailyStats
+        if (todayFromStats && todayFromStats.cacheCost !== undefined && todayFromStats.noCacheCost !== undefined) {
+            // Scale the cache breakdown to match the actual daily cost
+            const scaleFactor = stats.dailyCost / todayFromStats.totalCost;
+            const scaledCacheCost = todayFromStats.cacheCost * scaleFactor;
+            const scaledNonCacheCost = stats.dailyCost - scaledCacheCost;
+            const scaledNoCacheCost = todayFromStats.noCacheCost * scaleFactor;
+            const scaledSavings = scaledNoCacheCost - stats.dailyCost;
+            console.log(`  Regular:       $${scaledNonCacheCost.toFixed(2).padStart(6)} (${stats.dailyCost > 0 ? ((scaledNonCacheCost / stats.dailyCost) * 100).toFixed(0) : '0'}%)`);
+            console.log(`  Cache:         $${scaledCacheCost.toFixed(2).padStart(6)} (${stats.dailyCost > 0 ? ((scaledCacheCost / stats.dailyCost) * 100).toFixed(0) : '0'}%)`);
+            console.log(`Without cache:   $${scaledNoCacheCost.toFixed(2).padStart(6)} (API price)`);
+            console.log(`You save:        $${scaledSavings.toFixed(2).padStart(6)} (${scaledNoCacheCost > 0 ? ((scaledSavings / scaledNoCacheCost) * 100).toFixed(0) : '0'}%)`);
+        }
     }
     if (stats.currentSession) {
-        console.log(`\nCurrent Session:`);
-        console.log(`  Messages: ${stats.currentSession.tokenUsage.length}`);
-        console.log(`  Tokens: ${stats.currentSession.totalTokens.toLocaleString()}`);
-        console.log(`  Cost: $${stats.currentSession.totalCost.toFixed(3)}`);
-        console.log(`  Resets in: ${Math.floor(stats.timeUntilReset / 60)}h ${stats.timeUntilReset % 60}m`);
+        console.log('\nCURRENT SESSION');
+        console.log('-'.repeat(30));
+        console.log(`Messages:  ${stats.currentSession.tokenUsage.length.toString().padStart(10)}`);
+        // Show tokens with bonus if exceeding limit
+        const sessionLimit = stats.plan.estimatedTokensPerSession || 90000000;
+        const totalTokens = stats.currentSession.totalTokens;
+        if (totalTokens > sessionLimit) {
+            const bonus = totalTokens - sessionLimit;
+            console.log(`Tokens:    ${sessionLimit.toLocaleString().padStart(10)} + ${bonus.toLocaleString()} bonus`);
+            const bonusPercent = ((totalTokens / sessionLimit) * 100) - 100;
+            console.log(`Usage:     ${((totalTokens / sessionLimit) * 100).toFixed(1)}% (+${bonusPercent.toFixed(1)}% bonus)`);
+        }
+        else {
+            console.log(`Tokens:    ${totalTokens.toLocaleString().padStart(10)} / ${sessionLimit.toLocaleString()}`);
+            console.log(`Usage:     ${((totalTokens / sessionLimit) * 100).toFixed(1)}%`);
+        }
+        console.log(`Cost:      $${stats.currentSession.totalCost.toFixed(2).padStart(9)} (total)`);
+        // Calculate session cache breakdown if we have the data
+        let sessionCacheCost = 0;
+        let sessionRegularCost = 0;
+        let sessionNoCacheCost = 0;
+        for (const usage of stats.currentSession.tokenUsage) {
+            if (usage.costBreakdown) {
+                sessionCacheCost += usage.costBreakdown.cacheWrite + usage.costBreakdown.cacheRead;
+                sessionRegularCost += usage.costBreakdown.input + usage.costBreakdown.output;
+            }
+            // Calculate what it would cost without cache
+            const modelKey = Object.keys(constants_1.MODEL_COSTS).find(k => usage.model.includes(k));
+            if (modelKey) {
+                const costs = constants_1.MODEL_COSTS[modelKey];
+                const totalInputTokens = usage.inputTokens + usage.cacheCreateTokens + usage.cacheReadTokens;
+                sessionNoCacheCost += (totalInputTokens / 1000000) * costs.input + (usage.outputTokens / 1000000) * costs.output;
+            }
+        }
+        // Show cost breakdown
+        if (sessionRegularCost > 0 || sessionCacheCost > 0) {
+            const regularPercent = stats.currentSession.totalCost > 0 ? (sessionRegularCost / stats.currentSession.totalCost) * 100 : 0;
+            const cachePercent = stats.currentSession.totalCost > 0 ? (sessionCacheCost / stats.currentSession.totalCost) * 100 : 0;
+            console.log(`  Regular: $${sessionRegularCost.toFixed(2).padStart(9)} (${regularPercent.toFixed(0)}%)`);
+            console.log(`  Cache:   $${sessionCacheCost.toFixed(2).padStart(9)} (${cachePercent.toFixed(0)}%)`);
+        }
+        if (sessionNoCacheCost > 0) {
+            const sessionSavings = sessionNoCacheCost - stats.currentSession.totalCost;
+            const savingsPercent = (sessionSavings / sessionNoCacheCost) * 100;
+            console.log(`Without:   $${sessionNoCacheCost.toFixed(2).padStart(9)} (API price)`);
+            console.log(`Savings:   $${sessionSavings.toFixed(2).padStart(9)} (${savingsPercent.toFixed(0)}%)`);
+        }
+        console.log(`Resets in: ${Math.floor(stats.timeUntilReset / 60)}h ${(stats.timeUntilReset % 60).toString().padStart(2, '0')}m`);
     }
-    console.log('\nLast 7 days:');
+    // Improved bar chart scaling
+    console.log('\nLAST 7 DAYS');
+    console.log('-'.repeat(60));
+    // Calculate appropriate scale for the bar chart
+    const maxCost = Math.max(...dailyStats.map(d => d.totalCost), 0.01);
+    const maxBarWidth = 30; // Maximum width for bars
     dailyStats.forEach(day => {
         const date = new Date(day.date);
         const dayName = date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
-        const bar = '█'.repeat(Math.round(day.totalCost * 10));
-        console.log(`  ${dayName}: ${bar} $${day.totalCost.toFixed(3)}`);
+        const cost = day.totalCost;
+        // Scale the bar appropriately
+        const barLength = Math.round((cost / maxCost) * maxBarWidth);
+        const bar = '█'.repeat(Math.max(0, barLength));
+        // Format the line with proper alignment
+        const dayLabel = dayName.padEnd(12);
+        const barSection = bar.padEnd(maxBarWidth + 1);
+        const costLabel = `$${cost.toFixed(2)}`;
+        console.log(`${dayLabel}${barSection}${costLabel}`);
     });
-    // Cache cost analysis
-    const totalDays = dailyStats.length;
+    // Calculate totals for better summary
+    const totalCost = dailyStats.reduce((sum, d) => sum + d.totalCost, 0);
+    const avgDailyCost = totalCost / Math.max(dailyStats.length, 1);
+    console.log('-'.repeat(60));
+    console.log(`Average daily cost: $${avgDailyCost.toFixed(2)}`);
+    // Cache cost analysis with better formatting
     const totalCacheCost = dailyStats.reduce((sum, d) => sum + (d.cacheCost || 0), 0);
     const totalNoCacheCost = dailyStats.reduce((sum, d) => sum + (d.noCacheCost || 0), 0);
     const totalSavings = dailyStats.reduce((sum, d) => sum + (d.cacheSavings || 0), 0);
-    if (totalDays > 0 && totalCacheCost > 0) {
-        console.log('\nCache Cost Analysis:');
-        console.log(`  Cache costs: $${totalCacheCost.toFixed(2)} (${((totalCacheCost / dailyStats.reduce((s, d) => s + d.totalCost, 0)) * 100).toFixed(1)}% of total)`);
-        console.log(`  Without cache: $${totalNoCacheCost.toFixed(2)}`);
-        console.log(`  Cache savings: $${totalSavings.toFixed(2)} (${((totalSavings / totalNoCacheCost) * 100).toFixed(1)}% saved)`);
+    if (totalCacheCost > 0) {
+        console.log('\nCACHE ANALYSIS (7 days)');
+        console.log('-'.repeat(30));
+        console.log(`Total cost:      $${totalCost.toFixed(2).padStart(7)}`);
+        console.log(`Cache portion:   $${totalCacheCost.toFixed(2).padStart(7)} (${((totalCacheCost / totalCost) * 100).toFixed(0)}%)`);
+        if (totalNoCacheCost > 0) {
+            console.log(`Without cache:   $${totalNoCacheCost.toFixed(2).padStart(7)}`);
+            console.log(`Total savings:   $${totalSavings.toFixed(2).padStart(7)} (${((totalSavings / totalNoCacheCost) * 100).toFixed(0)}%)`);
+        }
     }
     if (weeklyStats.length > 0) {
-        console.log('\nWeekly Summary:');
+        console.log('\nWEEKLY TRENDS');
+        console.log('-'.repeat(30));
         weeklyStats.slice(-2).forEach(week => {
             const startDate = new Date(week.weekStart);
-            const weekLabel = startDate.toLocaleDateString('en', { month: 'short', day: 'numeric' });
-            console.log(`  Week ${weekLabel}: $${week.totalCost.toFixed(2)} (${week.days} days, avg $${week.dailyAverage.toFixed(2)}/day)`);
+            const weekLabel = `Week of ${startDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`;
+            console.log(`${weekLabel.padEnd(20)} $${week.totalCost.toFixed(2).padStart(7)} (${week.days}d, avg $${week.dailyAverage.toFixed(2)}/day)`);
         });
     }
     if (monthlyStats.length > 0) {
         const currentMonth = monthlyStats[monthlyStats.length - 1];
-        console.log('\nMonthly Summary:');
-        console.log(`  Current usage (if API): $${currentMonth.apiEquivalentCost.toFixed(2)}`);
-        console.log(`  Max20 plan cost: $${currentMonth.planCost.toFixed(2)}`);
+        console.log('\nMONTHLY SUMMARY');
+        console.log('-'.repeat(30));
+        console.log(`API equivalent:  $${currentMonth.apiEquivalentCost.toFixed(2).padStart(7)}`);
+        console.log(`Max20 plan:      $${currentMonth.planCost.toFixed(2).padStart(7)}`);
         if (currentMonth.apiEquivalentCost > currentMonth.planCost) {
-            console.log(`  Savings: $${(currentMonth.apiEquivalentCost - currentMonth.planCost).toFixed(2)}`);
+            console.log(`You save:        $${(currentMonth.apiEquivalentCost - currentMonth.planCost).toFixed(2).padStart(7)}`);
         }
-        else {
-            console.log(`  Cost for unlimited access: $${(currentMonth.planCost - currentMonth.apiEquivalentCost).toFixed(2)}`);
-        }
-        console.log(`  Daily average: $${currentMonth.dailyAverage.toFixed(3)}`);
+        console.log(`Daily average:   $${currentMonth.dailyAverage.toFixed(2).padStart(7)}`);
     }
     if (stats.alerts.length > 0) {
-        console.log('\n⚠️  Alerts:');
+        console.log('\n⚠️  ALERTS');
+        console.log('-'.repeat(30));
         stats.alerts.forEach(alert => {
-            console.log(`  - ${alert.message}`);
+            console.log(`• ${alert.message}`);
         });
     }
+    console.log('\n' + '='.repeat(60) + '\n');
 }
 program.parse(process.argv);
 //# sourceMappingURL=index.js.map

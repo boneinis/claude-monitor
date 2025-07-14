@@ -10,6 +10,9 @@
     "build": "tsc && cp -r web dist/",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "monitor": "npm run build && npm start",
+    "daily": "npm run build && npm start -- --daily",
+    "install-global": "npm run build && npm link",
     "lint": "eslint src --ext .ts",
     "test": "jest"
   },

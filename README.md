@@ -1,53 +1,78 @@
 # Claude Monitor
 
-A terminal-based real-time monitoring tool for Claude Code usage with optional web dashboard.
+A real-time terminal and web-based monitor for Claude Code usage, costs, and session tracking.
+
+## Quick Start
+
+### Simple Commands
+
+**Daily Report:**
+```bash
+npm run daily
+```
+
+**Live Monitor (TUI):**
+```bash
+npm run monitor
+```
+
+**Web Dashboard:**
+```bash
+npm run monitor -- --web
+```
+
+### Installation
+
+**Local Setup (recommended):**
+```bash
+# 1. Clone and install
+git clone <repository-url>
+cd claude-monitor
+npm install
+
+# 2. Use simple commands
+npm run daily        # Quick daily report  
+npm run monitor      # Live monitoring TUI
+```
+
+**Global Installation:**
+```bash
+npm run install-global
+# Then use anywhere:
+claude-monitor --daily
+claude-monitor --plan Max20
+```
 
 ## Features
 
-- 📊 Real-time token usage monitoring
-- 💰 Cost tracking and breakdown by model
-- 📈 Historical usage analytics
-- ⚠️ Smart alerts for usage thresholds
-- 🎯 Session-based tracking (5-hour windows)
-- 🖥️ Beautiful terminal UI with keyboard navigation
+- 📊 **Real-time monitoring** with live TUI updates every 3 seconds
+- 💰 **Cost tracking** with cache vs regular token breakdown
+- 📈 **Progress bars** for session usage and time remaining
+- 🎯 **Bonus token detection** when exceeding plan limits
+- 📅 **Historical data** with 7-day charts and weekly/monthly trends
+- 🌐 **Web dashboard** for browser-based monitoring
+- ⚡ **Accurate session detection** with proper 5-hour window tracking
+- 💾 **Cache cost analysis** showing savings from token caching
 
-## Installation
+## Detailed Usage
 
+### Daily Report
 ```bash
-npm install -g claude-monitor
+npm run daily                    # Quick cost summary
+npm start -- --daily --plan Pro # Specify plan
 ```
 
-Or run locally:
-
+### Live Monitor
 ```bash
-npm install
-npm run build
-npm start
+npm run monitor                  # Interactive TUI
+npm start -- --plan Max20       # With specific plan
+npm start -- --web              # Include web dashboard
+npm start -- --web-only         # Web dashboard only
 ```
 
-## Usage
-
+### All Options
 ```bash
-# Launch interactive TUI
-claude-monitor
-
-# Launch web dashboard only
-claude-monitor --web-only
-
-# Launch TUI with web dashboard
-claude-monitor --web
-
-# Show daily report
-claude-monitor --daily
-
-# Custom refresh interval (milliseconds)
-claude-monitor --refresh 1000
-
-# Specify subscription plan
-claude-monitor --plan Max20
-
-# Custom web server port
-claude-monitor --web-only --port 8080
+npm start -- --help             # See all available options
 ```
 
 ## Keyboard Shortcuts
@@ -61,10 +86,10 @@ claude-monitor --web-only --port 8080
 
 ## Plans Supported
 
-- Free (2k daily / 1k session)
-- Pro (7k daily / 3.5k session)
-- Max5 (15k daily / 7.5k session)
-- Max20 (60k daily / 30k session)
+- **Pro** - 45 msgs/5hr (~4.5M tokens) - $20/month
+- **Max5** - 225 msgs/5hr (~22.5M tokens) - $100/month  
+- **Max20** - 900 msgs/5hr (~90M tokens) - $200/month
+- **Team** - 45 msgs/5hr (~4.5M tokens) - $25/user/month
 
 ## Requirements
 

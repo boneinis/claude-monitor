@@ -37,8 +37,10 @@ export class MonitorEngine {
     const burnRate = this.calculateBurnRate(currentSession);
     const timeUntilReset = this.calculateTimeUntilReset(currentSession);
     
-    // Count actual reset periods today
-    const sessionsToday = this.countSessionsToday();
+    // Count actual sessions that started today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const sessionsToday = sessions.filter(s => new Date(s.startTime) >= todayStart).length;
     
     this.checkAlerts(dailyCost);
     
@@ -423,11 +425,33 @@ export class MonitorEngine {
   }
 
   private countSessionsToday(): number {
-    // For synchronous use, return estimate based on hours passed
-    // Maximum possible is 5 sessions per day (24/5 = 4.8)
-    const now = new Date();
-    const hoursPassed = now.getHours() + (now.getMinutes() / 60);
-    return Math.min(Math.ceil(hoursPassed / 5), 5);
+    // Count actual unique 5-hour sessions that started today
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const sessions = new Set<string>();
+      
+      // Use a simple cache check - if we have recent data, use it
+      const recentStats = this.cache.get<any>('recent_sessions');
+      if (recentStats && recentStats.sessions) {
+        for (const session of recentStats.sessions) {
+          const sessionStart = new Date(session.startTime);
+          if (sessionStart >= todayStart) {
+            // Create a unique key for each 5-hour window
+            const hourBlock = Math.floor(sessionStart.getHours() / 5);
+            sessions.add(`${sessionStart.toDateString()}-${hourBlock}`);
+          }
+        }
+      }
+      
+      return sessions.size;
+    } catch (error) {
+      // Fallback to simple estimate if there's an error
+      const now = new Date();
+      const hoursPassed = now.getHours() + (now.getMinutes() / 60);
+      return Math.min(Math.max(1, Math.ceil(hoursPassed / 5)), 5);
+    }
   }
 
   private calculateEfficiency(usage: TokenUsage[]): number {

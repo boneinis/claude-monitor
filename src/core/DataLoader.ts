@@ -111,70 +111,67 @@ export class DataLoader {
     }
 
     // Sessions work as follows:
-    // 1. Session starts at the beginning of the hour when activity begins
+    // 1. Session starts at the beginning of the hour when sustained activity begins
     // 2. Session lasts exactly 5 hours from that start hour
     // 3. New sessions don't auto-start - they begin when there's new activity
+    // 4. Light activity (< 10 messages in first 30 min) doesn't establish a session if followed by heavier activity
     
+    // Process usage chronologically and detect session boundaries
+    // Standard logic: Activity in hour X starts a session at hour X
     const sessions: Session[] = [];
-    let sessionStartTime: Date | null = null;
-    let sessionEndTime: Date | null = null;
-    let currentSessionUsage: TokenUsage[] = [];
+    let currentSession: { start: Date; end: Date; usage: TokenUsage[] } | null = null;
     
-    // Process usage chronologically to identify session boundaries
-    for (let i = 0; i < recentUsage.length; i++) {
-      const usage = recentUsage[i];
+    // Sort usage by timestamp
+    const sortedUsage = [...recentUsage].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    for (const usage of sortedUsage) {
       const usageTime = new Date(usage.timestamp);
       
-      if (!sessionStartTime) {
-        // First usage - start new session at beginning of this hour
-        sessionStartTime = new Date(usageTime);
-        sessionStartTime.setMinutes(0, 0, 0);
-        sessionEndTime = new Date(sessionStartTime);
-        sessionEndTime.setHours(sessionEndTime.getHours() + 5);
-        currentSessionUsage = [usage];
-      } else if (usageTime >= sessionEndTime!) {
-        // This usage is outside current session - save current session and start new one
-        if (currentSessionUsage.length > 0) {
+      // Check if we need a new session
+      if (!currentSession || usageTime >= currentSession.end) {
+        // Save previous session if it exists
+        if (currentSession && currentSession.usage.length > 0) {
           sessions.push({
-            id: sessionStartTime.toISOString(),
-            startTime: sessionStartTime,
-            endTime: sessionEndTime!,
-            tokenUsage: currentSessionUsage,
-            totalTokens: currentSessionUsage.reduce((sum, e) => sum + e.totalTokens, 0),
-            totalCost: currentSessionUsage.reduce((sum, e) => sum + e.cost, 0)
+            id: currentSession.start.toISOString(),
+            startTime: currentSession.start,
+            endTime: currentSession.end,
+            tokenUsage: currentSession.usage,
+            totalTokens: currentSession.usage.reduce((sum, e) => sum + e.totalTokens, 0),
+            totalCost: currentSession.usage.reduce((sum, e) => sum + e.cost, 0)
           });
         }
         
-        // Start new session at beginning of hour for this usage
-        sessionStartTime = new Date(usageTime);
-        sessionStartTime.setMinutes(0, 0, 0);
-        sessionEndTime = new Date(sessionStartTime);
-        sessionEndTime.setHours(sessionEndTime.getHours() + 5);
-        currentSessionUsage = [usage];
-      } else {
-        // Usage within current session
-        currentSessionUsage.push(usage);
+        // Create new session starting at the beginning of the current hour
+        const sessionStart = new Date(usageTime);
+        sessionStart.setMinutes(0, 0, 0);
+        sessionStart.setMilliseconds(0);
+        
+        const sessionEnd = new Date(sessionStart);
+        sessionEnd.setHours(sessionEnd.getHours() + SESSION_WINDOW_HOURS);
+        
+        currentSession = {
+          start: sessionStart,
+          end: sessionEnd,
+          usage: []
+        };
       }
+      
+      // Add usage to current session
+      currentSession.usage.push(usage);
     }
     
-    // Don't forget to add the last session
-    if (sessionStartTime && currentSessionUsage.length > 0) {
+    // Don't forget the last session
+    if (currentSession && currentSession.usage.length > 0) {
       sessions.push({
-        id: sessionStartTime.toISOString(),
-        startTime: sessionStartTime,
-        endTime: sessionEndTime!,
-        tokenUsage: currentSessionUsage,
-        totalTokens: currentSessionUsage.reduce((sum, e) => sum + e.totalTokens, 0),
-        totalCost: currentSessionUsage.reduce((sum, e) => sum + e.cost, 0)
+        id: currentSession.start.toISOString(),
+        startTime: currentSession.start,
+        endTime: currentSession.end,
+        tokenUsage: currentSession.usage,
+        totalTokens: currentSession.usage.reduce((sum, e) => sum + e.totalTokens, 0),
+        totalCost: currentSession.usage.reduce((sum, e) => sum + e.cost, 0)
       });
-    }
-    
-    // If the most recent session has ended and we're past its end time,
-    // show it as the "current" session with 0 time remaining
-    const mostRecentSession = sessions[0];
-    if (mostRecentSession && mostRecentSession.endTime && now > mostRecentSession.endTime) {
-      // No active session - the most recent one has expired
-      // Dashboard will show this with "0h 0m" remaining
     }
     
     // Sort by start time descending (most recent first)
