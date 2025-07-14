@@ -34,6 +34,20 @@ export class UpdateChecker {
     }
   }
 
+  static async checkForUpdatesInteractive(): Promise<{ hasUpdate: boolean; release?: GitHubRelease; error?: string }> {
+    try {
+      const latestRelease = await this.fetchLatestRelease();
+      if (!latestRelease) {
+        return { hasUpdate: false, error: 'Unable to fetch release information' };
+      }
+      
+      const hasUpdate = this.isNewerVersion(latestRelease.tag_name);
+      return { hasUpdate, release: latestRelease };
+    } catch (error) {
+      return { hasUpdate: false, error: 'Network error or GitHub API unavailable' };
+    }
+  }
+
   private static fetchLatestRelease(): Promise<GitHubRelease | null> {
     return new Promise((resolve, reject) => {
       const options = {

@@ -8,6 +8,8 @@ export declare class MonitorEngine {
     private cache;
     constructor(dataLoader: DataLoader, plan?: Plan);
     getProjects(): Promise<string[]>;
+    setPlan(plan: Plan): void;
+    getCurrentPlan(): Plan;
     getCurrentStats(projectName?: string): Promise<{
         currentSession: Session;
         previousSession: Session;
@@ -32,6 +34,5 @@ export declare class MonitorEngine {
     private countSessionsToday;
     private calculateEfficiency;
     onUpdate(callback: () => void): void;
-    setPlan(plan: Plan): void;
 }
 //# sourceMappingURL=MonitorEngine.d.ts.map

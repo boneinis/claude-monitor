@@ -23,6 +23,14 @@ export class MonitorEngine {
     return this.dataLoader.getProjects();
   }
 
+  setPlan(plan: Plan): void {
+    this.plan = plan;
+  }
+
+  getCurrentPlan(): Plan {
+    return this.plan;
+  }
+
   async getCurrentStats(projectName?: string) {
     const sessions = await this.dataLoader.getCurrentSessions(projectName);
     const todayUsage = await this.dataLoader.loadTodayData(projectName);
@@ -470,9 +478,5 @@ export class MonitorEngine {
 
   onUpdate(callback: () => void) {
     this.updateCallbacks.push(callback);
-  }
-
-  setPlan(plan: Plan) {
-    this.plan = plan;
   }
 }

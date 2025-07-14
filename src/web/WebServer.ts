@@ -1,6 +1,7 @@
 import express from 'express';
 import { MonitorEngine } from '../core/MonitorEngine';
 import { PLANS } from '../core/constants';
+import { UpdateChecker } from '../utils/updateChecker';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -87,6 +88,15 @@ export class WebServer {
         res.json({ success: true, plan });
       } catch (error) {
         res.status(500).json({ error: 'Failed to update plan' });
+      }
+    });
+
+    this.app.get('/api/updates', async (req, res) => {
+      try {
+        const result = await UpdateChecker.checkForUpdatesInteractive();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to check for updates' });
       }
     });
 

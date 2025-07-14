@@ -427,6 +427,23 @@
                     <option value="Max20" selected>Max20 Plan</option>
                     <option value="Team">Team Plan</option>
                 </select>
+                <button id="updateButton" style="
+                    padding: 0.375rem 0.75rem;
+                    border-radius: 6px;
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-color);
+                    color: var(--text-primary);
+                    font-size: 0.875rem;
+                    cursor: pointer;
+                    font-weight: 500;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.375rem;
+                " onmouseover="this.style.borderColor='var(--border-hover)'" onmouseout="this.style.borderColor='var(--border-color)'" onclick="checkForUpdates()">
+                    <span>🔄</span>
+                    <span>Updates</span>
+                </button>
             </div>
         </div>
         <div id="headerWarnings" style="position: absolute; top: 4.5rem; right: 2rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; max-width: 400px;"></div>
@@ -1704,6 +1721,120 @@
                 console.error('Error updating plan:', error);
             }
         });
+
+        // Check for updates function
+        async function checkForUpdates() {
+            const button = document.getElementById('updateButton');
+            const originalContent = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = '<span>⏳</span><span>Checking...</span>';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/updates');
+                const result = await response.json();
+                
+                if (result.error) {
+                    showUpdateDialog('error', 'Update Check Failed', result.error);
+                } else if (result.hasUpdate && result.release) {
+                    showUpdateDialog('update', 'Update Available!', result.release);
+                } else {
+                    showUpdateDialog('success', 'You\'re Up to Date!', null);
+                }
+            } catch (error) {
+                showUpdateDialog('error', 'Update Check Failed', 'Network error occurred');
+            } finally {
+                // Restore button
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        }
+
+        function showUpdateDialog(type, title, data) {
+            // Remove existing dialog if any
+            const existing = document.getElementById('updateDialog');
+            if (existing) existing.remove();
+
+            const dialog = document.createElement('div');
+            dialog.id = 'updateDialog';
+            dialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            `;
+
+            let content = '';
+            let borderColor = '';
+
+            if (type === 'error') {
+                borderColor = 'var(--danger-red)';
+                content = `
+                    <h3 style="color: var(--danger-red); margin-bottom: 1rem;">${title}</h3>
+                    <p>Error: ${data}</p>
+                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">Please check your internet connection.</p>
+                `;
+            } else if (type === 'update') {
+                borderColor = 'var(--success-green)';
+                content = `
+                    <h3 style="color: var(--success-green); margin-bottom: 1rem;">${title}</h3>
+                    <p><strong>Current:</strong> v1.0.0</p>
+                    <p><strong>Latest:</strong> ${data.tag_name}</p>
+                    <p><strong>Released:</strong> ${new Date(data.published_at).toLocaleDateString()}</p>
+                    <a href="${data.html_url}" target="_blank" style="
+                        display: inline-block;
+                        margin-top: 1rem;
+                        padding: 0.5rem 1rem;
+                        background: var(--success-green);
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 6px;
+                        font-weight: 500;
+                    ">Download Update</a>
+                `;
+            } else {
+                borderColor = 'var(--success-green)';
+                content = `
+                    <h3 style="color: var(--success-green); margin-bottom: 1rem;">${title}</h3>
+                    <p>Current version: v1.0.0</p>
+                    <p style="color: var(--text-secondary);">You have the latest version installed.</p>
+                `;
+            }
+
+            dialog.innerHTML = `
+                <div style="
+                    background: var(--bg-primary);
+                    border: 2px solid ${borderColor};
+                    border-radius: 12px;
+                    padding: 2rem;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: var(--shadow-md);
+                ">
+                    ${content}
+                    <button onclick="document.getElementById('updateDialog').remove()" style="
+                        margin-top: 1.5rem;
+                        padding: 0.5rem 1rem;
+                        background: var(--bg-secondary);
+                        border: 1px solid var(--border-color);
+                        color: var(--text-primary);
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        width: 100%;
+                    ">Close</button>
+                </div>
+            `;
+
+            document.body.appendChild(dialog);
+        }
 
         // Initialize
         loadProjects();

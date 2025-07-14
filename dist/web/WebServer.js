@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebServer = void 0;
 const express_1 = __importDefault(require("express"));
 const constants_1 = require("../core/constants");
+const updateChecker_1 = require("../utils/updateChecker");
 const path_1 = __importDefault(require("path"));
 class WebServer {
     app;
@@ -86,6 +87,15 @@ class WebServer {
             }
             catch (error) {
                 res.status(500).json({ error: 'Failed to update plan' });
+            }
+        });
+        this.app.get('/api/updates', async (req, res) => {
+            try {
+                const result = await updateChecker_1.UpdateChecker.checkForUpdatesInteractive();
+                res.json(result);
+            }
+            catch (error) {
+                res.status(500).json({ error: 'Failed to check for updates' });
             }
         });
         // Server-Sent Events for real-time updates

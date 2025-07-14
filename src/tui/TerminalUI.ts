@@ -1,6 +1,8 @@
 import * as blessed from 'blessed';
 import * as contrib from 'blessed-contrib';
 import { MonitorEngine } from '../core/MonitorEngine';
+import { PLANS } from '../core/constants';
+import { UpdateChecker } from '../utils/updateChecker';
 import { formatCurrency, formatNumber, formatPercentage, formatTokensWithBonus, formatUsagePercentage } from '../utils/formatters';
 
 export class TerminalUI {
@@ -21,7 +23,9 @@ export class TerminalUI {
     this.monitor = monitor;
     this.screen = blessed.screen({
       smartCSR: true,
-      title: 'Claude Monitor'
+      title: 'Claude Monitor',
+      autoPadding: true,
+      fullUnicode: true
     });
 
     this.grid = new contrib.grid({ rows: 12, cols: 12, screen: this.screen });
@@ -78,7 +82,7 @@ export class TerminalUI {
     });
 
     const footer = this.grid.set(10, 0, 2, 12, blessed.box, {
-      content: ' [r] Refresh  [q] Quit  [?] Help  [p] Projects',
+      content: ' [r] Refresh  [s] Plan  [u] Updates  [p] Projects  [?] Help  [q] Quit',
       align: 'center',
       style: {
         fg: 'white'
@@ -96,6 +100,7 @@ export class TerminalUI {
   }
 
   private setupKeyboardHandlers() {
+    // Global screen key handlers
     this.screen.key(['q', 'C-c'], () => {
       if (this.refreshInterval) {
         clearInterval(this.refreshInterval);
@@ -107,12 +112,55 @@ export class TerminalUI {
       this.screen.focusNext();
     });
 
-    this.screen.key(['r'], () => {
-      this.refresh();
+    this.screen.key(['r'], async () => {
+      try {
+        await this.refresh();
+      } catch (error) {
+        this.showError(error);
+      }
     });
 
     this.screen.key(['?', 'h'], () => {
       this.showHelp();
+    });
+
+    this.screen.key(['p'], () => {
+      this.showProjects();
+    });
+
+    this.screen.key(['s'], () => {
+      this.showPlanSelector();
+    });
+
+    this.screen.key(['u'], () => {
+      this.checkForUpdates();
+    });
+
+    // Also add key handlers to all widgets to ensure they work
+    Object.values(this.widgets).forEach(widget => {
+      widget.key(['r'], async () => {
+        try {
+          await this.refresh();
+        } catch (error) {
+          this.showError(error);
+        }
+      });
+
+      widget.key(['p'], () => {
+        this.showProjects();
+      });
+
+      widget.key(['?', 'h'], () => {
+        this.showHelp();
+      });
+
+      widget.key(['s'], () => {
+        this.showPlanSelector();
+      });
+
+      widget.key(['u'], () => {
+        this.checkForUpdates();
+      });
     });
   }
 
@@ -316,7 +364,7 @@ export class TerminalUI {
       top: 'center',
       left: 'center',
       width: '50%',
-      height: '50%',
+      height: '60%',
       content: `
 Claude Monitor Help
 
@@ -325,10 +373,17 @@ Keyboard Shortcuts:
   ↑/↓     - Navigate within panels  
   Enter   - Show details
   r       - Refresh data
-  w       - Launch web dashboard
-  e       - Export current view
+  s       - Switch plan (Pro/Max5/Max20/Team)
+  u       - Check for updates
+  p       - Show projects
   ?/h     - Show this help
   q       - Quit
+
+Plans Available:
+  Pro   - 4.5M tokens, $20/month
+  Max5  - 22.5M tokens, $100/month  
+  Max20 - 90M tokens, $200/month
+  Team  - 4.5M tokens, $25/user/month
 
 Press any key to close...`,
       border: { type: 'line' },
@@ -344,6 +399,178 @@ Press any key to close...`,
 
     helpBox.focus();
     this.screen.render();
+  }
+
+  private async showProjects() {
+    try {
+      const projects = await this.monitor.getProjects();
+      
+      const projectsList = projects.length > 0 
+        ? projects.map((p, i) => `${i + 1}. ${p}`).join('\n')
+        : 'No projects found';
+
+      const projectsBox = blessed.box({
+        parent: this.screen,
+        top: 'center',
+        left: 'center',
+        width: '60%',
+        height: '60%',
+        content: `
+Claude Projects
+
+${projectsList}
+
+Press any key to close...`,
+        border: { type: 'line' },
+        style: {
+          border: { fg: 'cyan' }
+        }
+      });
+
+      projectsBox.key(['escape', 'q', 'enter', 'p'], () => {
+        projectsBox.destroy();
+        this.screen.render();
+      });
+
+      projectsBox.focus();
+      this.screen.render();
+    } catch (error) {
+      this.showError(error);
+    }
+  }
+
+  private showPlanSelector() {
+    const currentPlan = this.monitor.getCurrentPlan();
+    const plans = Object.entries(PLANS).map(([key, plan]) => ({
+      key,
+      plan,
+      isCurrent: plan.name === currentPlan.name
+    }));
+
+    const plansList = plans.map((p, i) => 
+      `${i + 1}. ${p.plan.name}${p.isCurrent ? ' (current)' : ''} - ${p.plan.estimatedTokensPerSession.toLocaleString()} tokens`
+    ).join('\n');
+
+    const planBox = blessed.box({
+      parent: this.screen,
+      top: 'center',
+      left: 'center',
+      width: '70%',
+      height: '70%',
+      content: `
+Select Plan
+
+${plansList}
+
+Press 1-${plans.length} to select a plan, or any other key to cancel...`,
+      border: { type: 'line' },
+      style: {
+        border: { fg: 'yellow' }
+      }
+    });
+
+    // Handle plan selection
+    for (let i = 0; i < plans.length; i++) {
+      planBox.key([String(i + 1)], () => {
+        const selectedPlan = plans[i];
+        this.monitor.setPlan(selectedPlan.plan);
+        planBox.destroy();
+        this.refresh(); // Refresh to show new plan
+        this.screen.render();
+      });
+    }
+
+    // Handle cancellation
+    planBox.key(['escape', 'q', 'enter', 's'], () => {
+      planBox.destroy();
+      this.screen.render();
+    });
+
+    planBox.focus();
+    this.screen.render();
+  }
+
+  private async checkForUpdates() {
+    // Show loading message
+    const loadingBox = blessed.box({
+      parent: this.screen,
+      top: 'center',
+      left: 'center',
+      width: '50%',
+      height: '20%',
+      content: '\n Checking for updates...\n Please wait...',
+      border: { type: 'line' },
+      style: {
+        border: { fg: 'blue' }
+      }
+    });
+
+    this.screen.render();
+
+    try {
+      const result = await UpdateChecker.checkForUpdatesInteractive();
+      loadingBox.destroy();
+
+      let content: string;
+      let borderColor: string;
+
+      if (result.error) {
+        content = `
+Update Check Failed
+
+Error: ${result.error}
+
+Please check your internet connection and try again.
+
+Press any key to close...`;
+        borderColor = 'red';
+      } else if (result.hasUpdate && result.release) {
+        content = `
+Update Available!
+
+Current version: v1.0.0
+Latest version: ${result.release.tag_name}
+Released: ${new Date(result.release.published_at).toLocaleDateString()}
+
+Download: ${result.release.html_url}
+
+Press any key to close...`;
+        borderColor = 'green';
+      } else {
+        content = `
+You're Up to Date!
+
+Current version: v1.0.0
+You have the latest version installed.
+
+Press any key to close...`;
+        borderColor = 'green';
+      }
+
+      const updateBox = blessed.box({
+        parent: this.screen,
+        top: 'center',
+        left: 'center',
+        width: '60%',
+        height: '60%',
+        content,
+        border: { type: 'line' },
+        style: {
+          border: { fg: borderColor }
+        }
+      });
+
+      updateBox.key(['escape', 'q', 'enter', 'u'], () => {
+        updateBox.destroy();
+        this.screen.render();
+      });
+
+      updateBox.focus();
+      this.screen.render();
+    } catch (error) {
+      loadingBox.destroy();
+      this.showError(error);
+    }
   }
 
   private showError(error: any) {

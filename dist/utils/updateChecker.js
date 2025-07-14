@@ -61,6 +61,19 @@ class UpdateChecker {
             console.log('📦 Unable to check for updates (offline or network issue)');
         }
     }
+    static async checkForUpdatesInteractive() {
+        try {
+            const latestRelease = await this.fetchLatestRelease();
+            if (!latestRelease) {
+                return { hasUpdate: false, error: 'Unable to fetch release information' };
+            }
+            const hasUpdate = this.isNewerVersion(latestRelease.tag_name);
+            return { hasUpdate, release: latestRelease };
+        }
+        catch (error) {
+            return { hasUpdate: false, error: 'Network error or GitHub API unavailable' };
+        }
+    }
     static fetchLatestRelease() {
         return new Promise((resolve, reject) => {
             const options = {

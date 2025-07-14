@@ -19,6 +19,12 @@ class MonitorEngine {
     async getProjects() {
         return this.dataLoader.getProjects();
     }
+    setPlan(plan) {
+        this.plan = plan;
+    }
+    getCurrentPlan() {
+        return this.plan;
+    }
     async getCurrentStats(projectName) {
         const sessions = await this.dataLoader.getCurrentSessions(projectName);
         const todayUsage = await this.dataLoader.loadTodayData(projectName);
@@ -394,9 +400,6 @@ class MonitorEngine {
     }
     onUpdate(callback) {
         this.updateCallbacks.push(callback);
-    }
-    setPlan(plan) {
-        this.plan = plan;
     }
 }
 exports.MonitorEngine = MonitorEngine;

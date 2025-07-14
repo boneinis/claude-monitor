@@ -18,6 +18,9 @@ export declare class TerminalUI {
     private createProgressBar;
     private formatDuration;
     private showHelp;
+    private showProjects;
+    private showPlanSelector;
+    private checkForUpdates;
     private showError;
 }
 //# sourceMappingURL=TerminalUI.d.ts.map
