@@ -81,40 +81,49 @@ npm start -- --help             # See all available options
 
 For easier access, several desktop launchers are available in the `launch-scripts/` directory:
 
-### 🖥️ **macOS App Bundle**
+### 🌐 **Cross-Platform Launcher (Recommended)**
 ```bash
+# Works on Windows, macOS, and Linux:
+node launch-scripts/start-monitor.js
+```
+- **Universal compatibility** across all operating systems
+- Automatically installs dependencies if needed
+- Builds project if necessary
+- Opens browser automatically
+- **Best choice for all users**
+
+### 🪟 **Windows Launchers**
+```batch
 # Double-click to launch:
+launch-scripts/Claude Monitor.bat
+# Or use PowerShell:
+launch-scripts/launch-claude-monitor.ps1
+# Quick start (assumes built):
+launch-scripts/quick-start.cmd
+```
+- Native Windows batch and PowerShell scripts
+- Auto-setup with dependency installation
+- Handles port conflicts automatically
+- Opens browser automatically
+
+### 🍎 **macOS Launchers**
+```bash
+# Native macOS app (double-click):
 launch-scripts/Claude Monitor.app
+# Terminal script (double-click):
+launch-scripts/Claude Monitor.command
+# Shell script:
+./launch-scripts/launch-claude-monitor.sh
 ```
 - Native macOS application experience
 - Custom app icon and proper bundle structure
 - Appears in Applications folder and Dock
-- Launches web interface automatically
-
-### ⚡ **Auto-Setup Launcher**
-```bash
-# Double-click to launch:
-launch-scripts/Claude Monitor.command
-```
-- Automatically installs dependencies if needed
-- Builds project if necessary
-- Kills existing instances to prevent conflicts
-- Opens browser automatically
-- **Recommended for first-time users**
-
-### 🚀 **Quick Launcher**
-```bash
-# Run from terminal:
-./launch-scripts/launch-claude-monitor.sh
-```
-- Lightweight script for daily use
-- Assumes project is already built
-- Opens web interface at localhost:3000
 
 ### 📋 **Setup Instructions**
-1. **First time**: Use `Claude Monitor.command` (handles all setup)
-2. **Regular use**: Use `Claude Monitor.app` (native macOS experience)  
-3. **Advanced users**: Use shell scripts or npm commands
+1. **Any OS**: Use `node launch-scripts/start-monitor.js` (universal)
+2. **Windows**: Use `Claude Monitor.bat` (native Windows experience)
+3. **macOS**: Use `Claude Monitor.app` (native macOS experience)
+4. **Advanced users**: Use npm commands directly
 
 ## Keyboard Shortcuts
 
@@ -138,8 +147,23 @@ launch-scripts/Claude Monitor.command
 
 ## Requirements
 
-- Node.js 16+
-- Claude Code with usage logs in `~/.claude/projects/`
+- **Node.js 16+** (Windows, macOS, Linux)
+- **Claude Code** with usage logs in:
+  - **Windows**: `%USERPROFILE%\.claude\projects\`
+  - **macOS/Linux**: `~/.claude/projects/`
+
+## Platform Compatibility
+
+✅ **Fully Compatible:**
+- Windows 10/11 (with Node.js)
+- macOS 10.10+ (with Node.js)  
+- Linux distributions (with Node.js)
+
+✅ **All Features Work:**
+- Terminal UI (TUI) with blessed library
+- Web dashboard with Express server
+- File system monitoring and parsing
+- Update checking via GitHub API
 
 ## Development
 
